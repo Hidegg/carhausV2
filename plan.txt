@@ -1,0 +1,149 @@
+================================================================================
+  CARHAUS V2 — PROJECT PLAN (UPDATED)
+================================================================================
+
+OVERVIEW
+--------
+Car wash management system. Multi-location, multi-role.
+Real-world app (sold), also portfolio project.
+
+STACK
+-----
+Backend:  Flask (pure JSON API) + SQLAlchemy + Flask-Login + Flask-Migrate + Flask-CORS
+Database: PostgreSQL (prod) / SQLite (dev)
+Frontend: React + Vite + TypeScript + Tailwind CSS + Framer Motion + Recharts
+Routing:  React Router v6
+Data:     TanStack Query (server state)
+Deploy:   Hetzner VPS (prod) / Vercel+Render (portfolio)
+
+================================================================================
+  FOLDER STRUCTURE
+================================================================================
+
+carhausV2/
+│
+├── backend/
+│   ├── __init__.py              ← app factory
+│   ├── config.py                ← env-based config
+│   ├── extensions.py            ← db, login_manager, migrate, cors
+│   ├── models.py                ← all DB models
+│   ├── blueprints/
+│   │   ├── auth/routes.py       ← POST /api/auth/login, /logout, GET /me
+│   │   ├── manager/routes.py    ← /api/manager/*
+│   │   └── admin/routes.py      ← /api/admin/*
+│   └── services/
+│       └── stats.py             ← stats computation
+│
+├── frontend/
+│   ├── src/
+│   │   ├── api/
+│   │   │   └── client.ts        ← axios instance + all API calls
+│   │   ├── components/
+│   │   │   ├── Layout.tsx       ← sidebar + navbar wrapper
+│   │   │   ├── Sidebar.tsx
+│   │   │   ├── Navbar.tsx
+│   │   │   └── StatCard.tsx
+│   │   ├── pages/
+│   │   │   ├── Login.tsx
+│   │   │   ├── manager/
+│   │   │   │   ├── Form.tsx
+│   │   │   │   └── Dashboard.tsx
+│   │   │   └── admin/
+│   │   │       ├── Overview.tsx
+│   │   │       ├── Zilnic.tsx
+│   │   │       ├── Saptamanal.tsx
+│   │   │       ├── Lunar.tsx
+│   │   │       ├── Spalatori.tsx
+│   │   │       └── Settings.tsx
+│   │   ├── hooks/
+│   │   │   └── useAuth.ts
+│   │   ├── types/
+│   │   │   └── index.ts
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   ├── index.html
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── tailwind.config.ts
+│   ├── postcss.config.js
+│   └── tsconfig.json
+│
+├── instance/
+│   └── carhaus.db               ← SQLite for dev
+├── migrations/                  ← Flask-Migrate
+├── .env
+├── .env.example
+├── .gitignore
+├── requirements.txt
+├── run.py
+└── initialize.py
+
+================================================================================
+  API ROUTES
+================================================================================
+
+AUTH
+  POST  /api/auth/login          ← {user, password} → {role, username, locatie_id}
+  POST  /api/auth/logout
+  GET   /api/auth/me             ← current user info
+
+MANAGER
+  GET   /api/manager/form-data   ← prices + spalatori for current location
+  POST  /api/manager/servicii    ← submit a service
+  GET   /api/manager/dashboard   ← today's services for location
+  POST  /api/manager/update-payment/<id>
+  GET   /api/client/<plate>      ← autofill by plate
+
+ADMIN
+  GET   /api/admin/overview      ← all locations, current day stats
+  GET   /api/admin/zilnic
+  GET   /api/admin/saptamanal
+  GET   /api/admin/lunar
+  GET   /api/admin/spalatori
+  GET   /api/admin/settings      ← locatii + spalatori + preturi
+  POST  /api/admin/settings/locatie
+  PUT   /api/admin/settings/locatie/<id>
+  DELETE /api/admin/settings/locatie/<id>
+  POST  /api/admin/settings/spalator
+  PUT   /api/admin/settings/spalator/<id>
+  DELETE /api/admin/settings/spalator/<id>
+  PUT   /api/admin/settings/preturi
+
+================================================================================
+  DEPLOYMENT
+================================================================================
+
+DEV
+  Flask :5001  ←  Vite :5173 (proxy /api/* → :5001)
+
+PROD — Hetzner CX22 (€3.29/mo)
+  Nginx → /api/*  → Gunicorn (Flask)
+        → /*      → frontend/dist/index.html
+
+PROD — Portfolio (split)
+  Vercel  → frontend/dist
+  Render  → Flask API (switch SQLite → Postgres)
+
+================================================================================
+  BUILD ORDER
+================================================================================
+
+Phase 1 — Backend API         ← convert all routes to JSON
+Phase 2 — Frontend scaffold   ← Vite + React + Tailwind + deps
+Phase 3 — Auth flow           ← Login page + useAuth hook
+Phase 4 — Layout              ← Sidebar + Navbar + routing
+Phase 5 — Manager views       ← Form + Dashboard
+Phase 6 — Admin views         ← Overview + reports + settings
+Phase 7 — Animations          ← Framer Motion on all pages
+Phase 8 — Deploy config       ← Nginx config + Gunicorn + systemd
+
+================================================================================
+  KEY DECISIONS
+================================================================================
+
+- Flask-Login sessions work cross-origin in dev via proxy (no JWT needed)
+- TanStack Query handles caching + refetch — no Redux
+- Recharts over Chart.js (native React, better with Framer Motion)
+- PostgreSQL for prod (SQLite filesystem resets on PaaS redeploy)
+- Vite proxy eliminates CORS in dev; Flask-CORS only needed for split prod deploy
+================================================================================
