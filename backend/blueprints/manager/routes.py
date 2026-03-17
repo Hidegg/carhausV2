@@ -1,11 +1,26 @@
 from flask import Blueprint, request, jsonify, session
 from flask_login import login_required, current_user
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
+from zoneinfo import ZoneInfo
+
+BUCHAREST = ZoneInfo('Europe/Bucharest')
 from functools import wraps
 from backend.extensions import db
 from backend.models import Clienti, Servicii, PretServicii, Spalatori, Locatie
 
 manager_bp = Blueprint('manager', __name__)
+
+
+def get_day_window():
+    """Returns (day_start, day_end) with a 4am cutoff in Bucharest time."""
+    now = datetime.now(BUCHAREST)
+    if now.hour < 4:
+        base = now.date() - timedelta(days=1)
+    else:
+        base = now.date()
+    day_start = datetime.combine(base, time(4, 0), tzinfo=BUCHAREST)
+    day_end = day_start + timedelta(days=1)
+    return day_start, day_end
 
 
 def manager_required(f):
@@ -48,7 +63,7 @@ def add_serviciu():
     locatie_id = session.get('locatie_id')
 
     try:
-        dataSpalare = datetime.fromisoformat(data['date'])
+        dataSpalare = datetime.fromisoformat(data['date']).replace(tzinfo=BUCHAREST)
     except (KeyError, ValueError) as e:
         return jsonify({'error': f'Invalid date: {e}'}), 400
 
@@ -64,6 +79,9 @@ def add_serviciu():
             telefonClient=data.get('telefonClient') or None,
             tipAutoturism=data.get('tipAutoturism', '').upper(),
             marcaAutoturism=data.get('marcaAutoturism', '').upper(),
+            gdprAcceptat=bool(data.get('gdprAcceptat', False)),
+            newsletterAcceptat=bool(data.get('newsletterAcceptat', False)),
+            termeniAcceptati=bool(data.get('termeniAcceptati', False)),
             locatie_id=locatie_id
         )
         db.session.add(client)
@@ -98,6 +116,7 @@ def add_serviciu():
             pretServicii=pret,
             comisionServicii=comision,
             tipPlata=data.get('tipPlata', 'CASH'),
+            nrFirma=data.get('nrFirma') or None,
             clienti_id=client.id,
             spalatori_id=spalator.id,
             locatie_id=locatie_id
@@ -115,16 +134,16 @@ def add_serviciu():
 @manager_required
 def dashboard():
     locatie_id = session.get('locatie_id')
-    today = datetime.today().date()
+    day_start, day_end = get_day_window()
 
     q = Servicii.query.filter(
-        Servicii.dataSpalare >= today,
-        Servicii.dataSpalare < today + timedelta(days=1)
+        Servicii.dataSpalare >= day_start,
+        Servicii.dataSpalare < day_end
     )
     if locatie_id:
         q = q.filter(Servicii.locatie_id == locatie_id)
 
-    servicii = q.order_by(Servicii.dataSpalare.desc()).all()
+    servicii = q.order_by(Servicii.id.desc()).all()
 
     grouped = {}
     for s in servicii:
@@ -147,6 +166,7 @@ def dashboard():
             'pretServicii': s.pretServicii,
             'comisionServicii': s.comisionServicii,
             'tipPlata': s.tipPlata,
+            'nrFirma': s.nrFirma,
             'spalator': s.spalatori.numeSpalator if s.spalatori else None,
         })
 
@@ -160,8 +180,109 @@ def update_payment(service_id):
     data = request.get_json()
     s = Servicii.query.get_or_404(service_id)
     s.tipPlata = data.get('tipPlata')
+    if 'nrFirma' in data:
+        s.nrFirma = data.get('nrFirma') or None
     db.session.commit()
     return jsonify({'ok': True})
+
+
+@manager_bp.route('/echipa')
+@login_required
+@manager_required
+def echipa_get():
+    locatie_id = session.get('locatie_id')
+    spalatori = Spalatori.query.filter_by(locatie_id=locatie_id).all() if locatie_id else []
+    return jsonify([{'id': s.id, 'numeSpalator': s.numeSpalator} for s in spalatori])
+
+
+@manager_bp.route('/echipa', methods=['POST'])
+@login_required
+@manager_required
+def echipa_add():
+    locatie_id = session.get('locatie_id')
+    if not locatie_id:
+        return jsonify({'error': 'Locatie negasita'}), 400
+    name = (request.get_json() or {}).get('numeSpalator', '').strip()
+    if not name:
+        return jsonify({'error': 'Numele este obligatoriu'}), 400
+    sp = Spalatori(numeSpalator=name, locatie_id=locatie_id)
+    db.session.add(sp)
+    db.session.commit()
+    return jsonify({'id': sp.id, 'numeSpalator': sp.numeSpalator}), 201
+
+
+@manager_bp.route('/echipa/<int:id>', methods=['DELETE'])
+@login_required
+@manager_required
+def echipa_delete(id):
+    locatie_id = session.get('locatie_id')
+    sp = Spalatori.query.get_or_404(id)
+    if sp.locatie_id != locatie_id:
+        return jsonify({'error': 'Forbidden'}), 403
+    db.session.delete(sp)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+@manager_bp.route('/analytics')
+@login_required
+@manager_required
+def analytics():
+    locatie_id = session.get('locatie_id')
+    day_start, day_end = get_day_window()
+
+    q = Servicii.query.filter(
+        Servicii.dataSpalare >= day_start,
+        Servicii.dataSpalare < day_end
+    )
+    if locatie_id:
+        q = q.filter(Servicii.locatie_id == locatie_id)
+
+    servicii = q.all()
+
+    total = sum(s.pretServicii or 0 for s in servicii)
+    cash = sum(s.pretServicii or 0 for s in servicii if s.tipPlata == 'CASH')
+    card = sum(s.pretServicii or 0 for s in servicii if s.tipPlata == 'CARD')
+    curs = sum(s.pretServicii or 0 for s in servicii if s.tipPlata == 'CURS')
+    contract = sum(s.pretServicii or 0 for s in servicii if s.tipPlata == 'CONTRACT')
+    protocol = sum(s.pretServicii or 0 for s in servicii if s.tipPlata == 'PROTOCOL')
+    masini = len(set(s.clienti_id for s in servicii))
+
+    spalatori_map = {}
+    for s in servicii:
+        name = s.spalatori.numeSpalator if s.spalatori else 'Necunoscut'
+        if name not in spalatori_map:
+            spalatori_map[name] = {'servicii': 0, 'total': 0.0, 'comision': 0.0, 'items': []}
+        spalatori_map[name]['servicii'] += 1
+        spalatori_map[name]['total'] += s.pretServicii or 0
+        spalatori_map[name]['comision'] += s.comisionServicii or 0
+        spalatori_map[name]['items'].append({
+            'serviciu': s.serviciiPrestate,
+            'masina': s.clienti.numarAutoturism,
+            'pret': s.pretServicii or 0,
+            'ora': s.dataSpalare.astimezone(BUCHAREST).strftime('%H:%M'),
+        })
+
+    servicii_map = {}
+    for s in servicii:
+        name = s.serviciiPrestate
+        if name not in servicii_map:
+            servicii_map[name] = {'count': 0, 'total': 0.0}
+        servicii_map[name]['count'] += 1
+        servicii_map[name]['total'] += s.pretServicii or 0
+
+    return jsonify({
+        'total': total,
+        'cash': cash,
+        'card': card,
+        'curs': curs,
+        'contract': contract,
+        'protocol': protocol,
+        'masini': masini,
+        'servicii_count': len(servicii),
+        'spalatori': [{'name': k, **v} for k, v in spalatori_map.items()],
+        'servicii_breakdown': [{'name': k, **v} for k, v in servicii_map.items()],
+    })
 
 
 @manager_bp.route('/client/<numar>')

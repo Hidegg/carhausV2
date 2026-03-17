@@ -1,11 +1,14 @@
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from dateutil.relativedelta import relativedelta
 from backend.extensions import db
 from backend.models import Servicii, Clienti
 
+BUCHAREST = ZoneInfo('Europe/Bucharest')
+
 
 def get_date_ranges():
-    today = datetime.today().date()
+    today = datetime.now(BUCHAREST).date()
     return {
         'ziuaCurenta':      (today, today + timedelta(days=1)),
         'ziuaTrecuta':      (today - timedelta(days=1), today),

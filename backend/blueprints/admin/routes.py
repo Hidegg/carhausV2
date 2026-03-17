@@ -167,6 +167,36 @@ def preturi_edit():
     return jsonify({'ok': True})
 
 
+@admin_bp.route('/settings/pret', methods=['POST'])
+@login_required
+@admin_required
+def pret_add():
+    data = request.get_json()
+    name = data.get('serviciiPrestate', '').strip()
+    if not name:
+        return jsonify({'error': 'Numele serviciului este obligatoriu'}), 400
+    if PretServicii.query.filter_by(serviciiPrestate=name).first():
+        return jsonify({'error': 'Serviciu deja existent'}), 409
+    p = PretServicii(serviciiPrestate=name)
+    db.session.add(p)
+    db.session.commit()
+    return jsonify({
+        'id': p.id, 'serviciiPrestate': p.serviciiPrestate,
+        'pretAutoturism': p.pretAutoturism, 'pretSUV': p.pretSUV, 'pretVan': p.pretVan,
+        'comisionAutoturism': p.comisionAutoturism, 'comisionSUV': p.comisionSUV, 'comisionVan': p.comisionVan
+    }), 201
+
+
+@admin_bp.route('/settings/pret/<int:id>', methods=['DELETE'])
+@login_required
+@admin_required
+def pret_delete(id):
+    p = PretServicii.query.get_or_404(id)
+    db.session.delete(p)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
 # ── Managers ─────────────────────────────────────────────────────────────────
 
 def _user_dict(u):

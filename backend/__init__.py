@@ -31,6 +31,13 @@ def create_app():
     app.register_blueprint(manager_bp, url_prefix='/api/manager')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
 
+    # Weekly backup scheduler (Sunday 03:00)
+    from apscheduler.schedulers.background import BackgroundScheduler
+    from backup import backup_database
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(backup_database, 'cron', day_of_week='sun', hour=3, minute=0)
+    scheduler.start()
+
     # Serve React app for all non-API routes in production
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')

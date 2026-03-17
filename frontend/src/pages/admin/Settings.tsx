@@ -36,6 +36,8 @@ export default function AdminSettings() {
   const addSpalator = useMutation({ mutationFn: ({ name, lid }: { name: string; lid: number }) => adminApi.addSpalator(name, lid), onSuccess: inv })
   const deleteSpalator = useMutation({ mutationFn: adminApi.deleteSpalator, onSuccess: inv })
   const editPreturi = useMutation({ mutationFn: adminApi.editPreturi, onSuccess: inv })
+  const addPret = useMutation({ mutationFn: adminApi.addPret, onSuccess: inv })
+  const deletePret = useMutation({ mutationFn: adminApi.deletePret, onSuccess: inv })
   const addManager = useMutation({ mutationFn: adminApi.addManager, onSuccess: invMgr })
   const editManager = useMutation({ mutationFn: ({ id, data }: { id: number; data: Parameters<typeof adminApi.editManager>[1] }) => adminApi.editManager(id, data), onSuccess: invMgr })
   const deleteManager = useMutation({ mutationFn: adminApi.deleteManager, onSuccess: invMgr })
@@ -44,6 +46,8 @@ export default function AdminSettings() {
   const [newSp, setNewSp] = useState<Record<number, string>>({})
   const [preturiState, setPreturiState] = useState<Record<number, PretServicii>>({})
   const [preturiDirty, setPreturiDirty] = useState(false)
+  const [newPretName, setNewPretName] = useState('')
+  const [pretError, setPretError] = useState('')
 
   // Manager form state
   const [newMgr, setNewMgr] = useState({ username: '', password: '', locatie_id: '' })
@@ -90,7 +94,7 @@ export default function AdminSettings() {
   const TABS: { key: Tab; label: string }[] = [
     { key: 'locatii', label: 'Locatii' },
     { key: 'spalatori', label: 'Spalatori' },
-    { key: 'preturi', label: 'Preturi' },
+    { key: 'preturi', label: 'Servicii & Preturi' },
     { key: 'manageri', label: 'Manageri' },
   ]
 
@@ -183,7 +187,15 @@ export default function AdminSettings() {
                   const cur = { ...p, ...(preturiState[p.id] ?? {}) }
                   return (
                     <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <td className="px-4 py-2 font-medium truncate">{p.serviciiPrestate}</td>
+                      <td className="px-4 py-2 font-medium truncate">
+                        <div className="flex items-center gap-2">
+                          <span>{p.serviciiPrestate}</span>
+                          <button onClick={() => confirm(`Stergi serviciul "${p.serviciiPrestate}"?`) && deletePret.mutate(p.id)}
+                            className="text-red-400 hover:text-red-600 transition-colors">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </td>
                       {(['pretAutoturism', 'pretSUV', 'pretVan', 'comisionAutoturism', 'comisionSUV', 'comisionVan'] as (keyof PretServicii)[]).map(field => (
                         <td key={field} className="py-2 text-center">
                           <input type="number" step="0.01" defaultValue={cur[field] as number}
@@ -204,6 +216,19 @@ export default function AdminSettings() {
               </button>
             </div>
           )}
+          <div className="mt-4 card px-4 py-3 border-dashed flex gap-3 items-center max-w-sm">
+            {pretError && <p className="text-xs text-red-500">{pretError}</p>}
+            <input value={newPretName} onChange={e => setNewPretName(e.target.value)}
+              placeholder="Nume serviciu nou" className="form-input flex-1 text-sm" />
+            <button onClick={() => {
+              setPretError('')
+              if (!newPretName.trim()) { setPretError('Numele este obligatoriu'); return }
+              addPret.mutate(newPretName.trim(), {
+                onSuccess: () => setNewPretName(''),
+                onError: (e: unknown) => setPretError((e as { response?: { data?: { error?: string } } }).response?.data?.error ?? 'Eroare'),
+              })
+            }} className="btn-primary text-xs px-3 whitespace-nowrap">+ Adauga</button>
+          </div>
         </motion.div>
       )}
 

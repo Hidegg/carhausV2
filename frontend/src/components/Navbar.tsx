@@ -9,7 +9,7 @@ interface Props {
 
 export default function Navbar({ sidebarOpen, setSidebarOpen, dark, setDark }: Props) {
   return (
-    <nav className="h-14 flex-shrink-0 flex items-center justify-between px-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm z-50 relative">
+    <nav className="h-14 flex-shrink-0 flex items-center justify-between px-4 bg-white dark:bg-[#1f1f1f] border-b border-gray-200 dark:border-gray-800 shadow-sm z-50 relative">
       <button onClick={() => setSidebarOpen(!sidebarOpen)}
               className="text-gray-500 dark:text-gray-400 hover:text-brand transition-colors">
         <Menu size={22} />

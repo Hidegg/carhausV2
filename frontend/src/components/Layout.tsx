@@ -3,8 +3,10 @@ import { Outlet } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import Navbar from './Navbar'
 import Sidebar from './Sidebar'
+import { useAuth } from '../hooks/useAuth'
 
 export default function Layout() {
+  const { user } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark')
 
@@ -14,7 +16,7 @@ export default function Layout() {
   }, [dark])
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className={`h-screen flex flex-col overflow-hidden${user?.rol === 'manager' ? ' manager-theme' : ''}`}>
       <Navbar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} dark={dark} setDark={setDark} />
       <div className="flex flex-1 overflow-hidden relative">
         <AnimatePresence>

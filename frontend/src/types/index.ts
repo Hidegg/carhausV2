@@ -39,7 +39,8 @@ export interface Serviciu {
   dataSpalare: string
   pretServicii: number
   comisionServicii: number
-  tipPlata: 'CASH' | 'CARD' | 'CURS'
+  tipPlata: 'CASH' | 'CARD' | 'CURS' | 'CONTRACT' | 'PROTOCOL'
+  nrFirma: string | null
   spalator: string | null
 }
 

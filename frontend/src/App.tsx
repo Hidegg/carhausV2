@@ -5,6 +5,8 @@ import Layout from './components/Layout'
 import Login from './pages/Login'
 import ManagerForm from './pages/manager/Form'
 import ManagerDashboard from './pages/manager/Dashboard'
+import ManagerEchipa from './pages/manager/Echipa'
+import ManagerAnalytics from './pages/manager/Analytics'
 import AdminOverview from './pages/admin/Overview'
 import AdminZilnic from './pages/admin/Zilnic'
 import AdminSaptamanal from './pages/admin/Saptamanal'
@@ -40,6 +42,8 @@ function AppRoutes() {
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route path="/manager/form" element={<ManagerForm />} />
         <Route path="/manager/dashboard" element={<ManagerDashboard />} />
+        <Route path="/manager/echipa" element={<ManagerEchipa />} />
+        <Route path="/manager/analytics" element={<ManagerAnalytics />} />
         <Route path="/admin/overview" element={<ProtectedRoute adminOnly><AdminOverview /></ProtectedRoute>} />
         <Route path="/admin/zilnic" element={<ProtectedRoute adminOnly><AdminZilnic /></ProtectedRoute>} />
         <Route path="/admin/saptamanal" element={<ProtectedRoute adminOnly><AdminSaptamanal /></ProtectedRoute>} />

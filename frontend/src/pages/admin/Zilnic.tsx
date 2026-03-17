@@ -21,6 +21,11 @@ export default function AdminZilnic() {
     { name: 'CARD', azi: r.ziuaCurenta?.spalariTipPlata?.CARD ?? 0, ieri: r.ziuaTrecuta?.spalariTipPlata?.CARD ?? 0 },
     { name: 'CURS', azi: r.ziuaCurenta?.spalariTipPlata?.CURS ?? 0, ieri: r.ziuaTrecuta?.spalariTipPlata?.CURS ?? 0 },
   ]
+  const incasariChart = [
+    { name: 'CASH', azi: r.ziuaCurenta?.incasariTipPlata?.CASH ?? 0, ieri: r.ziuaTrecuta?.incasariTipPlata?.CASH ?? 0 },
+    { name: 'CARD', azi: r.ziuaCurenta?.incasariTipPlata?.CARD ?? 0, ieri: r.ziuaTrecuta?.incasariTipPlata?.CARD ?? 0 },
+    { name: 'CURS', azi: r.ziuaCurenta?.incasariTipPlata?.CURS ?? 0, ieri: r.ziuaTrecuta?.incasariTipPlata?.CURS ?? 0 },
+  ]
   const spalatorChart = Object.entries(r.ziuaCurenta?.spalariPerSpalator ?? {}).map(([name, value]) => ({ name, value }))
 
   return (
@@ -52,7 +57,19 @@ export default function AdminZilnic() {
             </BarChart>
           </ResponsiveContainer>
         </motion.div>
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="card p-4">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="card p-4">
+          <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-4">Incasari Tip Plata — Azi vs Ieri (RON)</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={incasariChart}>
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} />
+              <Tooltip formatter={(v: number) => [`${v.toFixed(0)} RON`]} />
+              <Bar dataKey="azi" name="Azi" fill="#8B5E3C" radius={[4,4,0,0]} />
+              <Bar dataKey="ieri" name="Ieri" fill="#d1b49a" radius={[4,4,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </motion.div>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="card p-4 lg:col-span-2">
           <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-4">Spalari per Spalator — Azi</h3>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={spalatorChart} layout="vertical">

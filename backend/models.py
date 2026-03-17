@@ -46,6 +46,9 @@ class Clienti(db.Model):
     telefonClient = db.Column(db.String(15), nullable=True)
     tipAutoturism = db.Column(db.String(50))
     marcaAutoturism = db.Column(db.String(50))
+    gdprAcceptat = db.Column(db.Boolean, nullable=False, default=False, server_default='0')
+    newsletterAcceptat = db.Column(db.Boolean, nullable=False, default=False, server_default='0')
+    termeniAcceptati = db.Column(db.Boolean, nullable=False, default=False, server_default='0')
     locatie_id = db.Column(db.Integer, db.ForeignKey('locatie.id'), nullable=False)
 
     servicii = db.relationship('Servicii', backref='clienti', lazy=True)
@@ -75,6 +78,7 @@ class Servicii(db.Model):
     pretServicii = db.Column(db.Float, nullable=True)
     comisionServicii = db.Column(db.Float, nullable=True)
     tipPlata = db.Column(db.String(50), nullable=False)
+    nrFirma = db.Column(db.String(100), nullable=True)
 
     clienti_id = db.Column(db.Integer, db.ForeignKey('clienti.id'), nullable=False)
     spalatori_id = db.Column(db.Integer, db.ForeignKey('spalatori.id'), nullable=False)
