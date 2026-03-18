@@ -54,6 +54,10 @@ export const adminApi = {
     api.post('/admin/settings/pret', { serviciiPrestate }).then(r => r.data),
   deletePret: (id: number) =>
     api.delete(`/admin/settings/pret/${id}`).then(r => r.data),
+  istoric: (params: { locatie_id?: number; year?: number; month?: number }) =>
+    api.get('/admin/istoric', { params }).then(r => r.data),
+  clienti: (params: { locatie_id?: number; sort?: string; q?: string }) =>
+    api.get('/admin/clienti', { params }).then(r => r.data),
   getManagers: () => api.get('/admin/settings/managers').then(r => r.data),
   addManager: (data: { username: string; password: string; locatie_id: number | null }) =>
     api.post('/admin/settings/manager', data).then(r => r.data),
@@ -61,6 +65,24 @@ export const adminApi = {
     api.put(`/admin/settings/manager/${id}`, data).then(r => r.data),
   deleteManager: (id: number) =>
     api.delete(`/admin/settings/manager/${id}`).then(r => r.data),
+}
+
+// Dev
+export const devApi = {
+  overview: () => api.get('/dev/overview').then(r => r.data),
+  clients: (q: string, page: number) =>
+    api.get('/dev/clients', { params: { q, page } }).then(r => r.data),
+  clientHistory: (plate: string) =>
+    api.get(`/dev/client/${plate}/history`).then(r => r.data),
+  accounts: () => api.get('/dev/accounts').then(r => r.data),
+  addAccount: (data: { username: string; password: string; rol: string; locatie_id: number | null }) =>
+    api.post('/dev/accounts', data).then(r => r.data),
+  editAccount: (id: number, data: { username?: string; password?: string; rol?: string; locatie_id?: number | null }) =>
+    api.put(`/dev/accounts/${id}`, data).then(r => r.data),
+  deleteAccount: (id: number) =>
+    api.delete(`/dev/accounts/${id}`).then(r => r.data),
+  system: () => api.get('/dev/system').then(r => r.data),
+  backup: () => api.post('/dev/backup').then(r => r.data),
 }
 
 export default api

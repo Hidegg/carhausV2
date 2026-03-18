@@ -240,12 +240,12 @@ def analytics():
 
     servicii = q.all()
 
-    total = sum(s.pretServicii or 0 for s in servicii)
     cash = sum(s.pretServicii or 0 for s in servicii if s.tipPlata == 'CASH')
     card = sum(s.pretServicii or 0 for s in servicii if s.tipPlata == 'CARD')
     curs = sum(s.pretServicii or 0 for s in servicii if s.tipPlata == 'CURS')
     contract = sum(s.pretServicii or 0 for s in servicii if s.tipPlata == 'CONTRACT')
     protocol = sum(s.pretServicii or 0 for s in servicii if s.tipPlata == 'PROTOCOL')
+    total = cash + card + contract + protocol  # CURS excluded — not yet collected
     masini = len(set(s.clienti_id for s in servicii))
 
     spalatori_map = {}
@@ -254,7 +254,9 @@ def analytics():
         if name not in spalatori_map:
             spalatori_map[name] = {'servicii': 0, 'total': 0.0, 'comision': 0.0, 'items': []}
         spalatori_map[name]['servicii'] += 1
-        spalatori_map[name]['total'] += s.pretServicii or 0
+        # Only count collected revenue toward spalator total
+        if s.tipPlata != 'CURS':
+            spalatori_map[name]['total'] += s.pretServicii or 0
         spalatori_map[name]['comision'] += s.comisionServicii or 0
         spalatori_map[name]['items'].append({
             'serviciu': s.serviciiPrestate,

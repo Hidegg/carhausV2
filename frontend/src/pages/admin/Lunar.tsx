@@ -6,7 +6,7 @@ import { adminApi } from '../../api/client'
 import StatCard from '../../components/StatCard'
 import { ReportsResponse, LocationReport } from '../../types'
 
-const PIE_COLORS = ['#8B5E3C','#A8784F','#6B4428','#c4956a','#e8c9ae','#d4a574']
+const PIE_COLORS = ['#2563eb','#3b82f6','#1d4ed8','#60a5fa','#93c5fd','#1e40af']
 
 export default function AdminLunar() {
   const { data, isLoading } = useQuery<ReportsResponse>({ queryKey: ['admin', 'lunar'], queryFn: adminApi.lunar })
@@ -48,8 +48,8 @@ export default function AdminLunar() {
             <BarChart data={barData}>
               <XAxis dataKey="name" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} />
               <Tooltip formatter={(v: number) => [`${v} RON`]} />
-              <Bar dataKey="cur" name="Curenta" fill="#8B5E3C" radius={[4,4,0,0]} />
-              <Bar dataKey="prev" name="Trecuta" fill="#d1b49a" radius={[4,4,0,0]} />
+              <Bar dataKey="cur" name="Curenta" fill="#2563eb" radius={[4,4,0,0]} />
+              <Bar dataKey="prev" name="Trecuta" fill="#93c5fd" radius={[4,4,0,0]} />
             </BarChart>
           </ResponsiveContainer>
         </motion.div>

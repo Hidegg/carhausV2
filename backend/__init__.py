@@ -26,10 +26,12 @@ def create_app():
     from backend.blueprints.auth.routes import auth_bp
     from backend.blueprints.manager.routes import manager_bp
     from backend.blueprints.admin.routes import admin_bp
+    from backend.blueprints.dev.routes import dev_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(manager_bp, url_prefix='/api/manager')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
+    app.register_blueprint(dev_bp, url_prefix='/api/dev')
 
     # Weekly backup scheduler (Sunday 03:00)
     from apscheduler.schedulers.background import BackgroundScheduler

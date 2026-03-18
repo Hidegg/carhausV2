@@ -1,9 +1,14 @@
+from datetime import datetime, timedelta, date
+from zoneinfo import ZoneInfo
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from functools import wraps
+from sqlalchemy import func, extract
 from backend.extensions import db
-from backend.models import Locatie, Spalatori, PretServicii, User
+from backend.models import Locatie, Spalatori, PretServicii, User, Servicii, Clienti
 from backend.services.stats import get_location_report
+
+BUCHAREST = ZoneInfo('Europe/Bucharest')
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -63,6 +68,241 @@ def lunar():
 def spalatori_report():
     locatii, reports = build_reports()
     return jsonify({'locatii': locatii, 'reports': reports})
+
+
+# ── Istoric ──────────────────────────────────────────────────────────────────
+
+RO_MONTHS_SHORT = ['Ian', 'Feb', 'Mar', 'Apr', 'Mai', 'Iun',
+                   'Iul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+RO_MONTHS_FULL  = ['Ianuarie', 'Februarie', 'Martie', 'Aprilie', 'Mai', 'Iunie',
+                   'Iulie', 'August', 'Septembrie', 'Octombrie', 'Noiembrie', 'Decembrie']
+
+
+def _svc_breakdown(locatie_id, start, end):
+    q = db.session.query(
+        Servicii.serviciiPrestate,
+        func.count(Servicii.id),
+        func.sum(db.case((Servicii.tipPlata != 'CURS', Servicii.pretServicii), else_=0))
+    ).filter(Servicii.dataSpalare >= start, Servicii.dataSpalare < end)
+    if locatie_id:
+        q = q.filter(Servicii.locatie_id == locatie_id)
+    return [
+        {'name': r[0], 'spalari': int(r[1]), 'incasari': float(r[2] or 0)}
+        for r in q.group_by(Servicii.serviciiPrestate).order_by(func.count(Servicii.id).desc()).all()
+    ]
+
+
+def _month_weeks(year, month):
+    """Mon-Sun week buckets clipped to the month. Returns (start, end_exclusive) pairs."""
+    first = date(year, month, 1)
+    after = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+    weeks, cur = [], first
+    while cur < after:
+        days_to_sun = (6 - cur.weekday()) % 7
+        week_end = min(cur + timedelta(days=days_to_sun), after - timedelta(days=1))
+        weeks.append((cur, week_end + timedelta(days=1)))
+        cur = week_end + timedelta(days=1)
+    return weeks
+
+
+@admin_bp.route('/istoric')
+@login_required
+@admin_required
+def istoric():
+    locatie_id = request.args.get('locatie_id', type=int)
+    today = datetime.now(BUCHAREST).date()
+    year  = request.args.get('year',  type=int) or today.year
+    month = request.args.get('month', type=int)
+
+    # Earliest record → available years
+    prima_q = db.session.query(func.min(Servicii.dataSpalare))
+    if locatie_id:
+        prima_q = prima_q.filter(Servicii.locatie_id == locatie_id)
+    prima = prima_q.scalar()
+    first_year      = prima.year if prima else today.year
+    available_years = list(range(first_year, today.year + 1))
+    prima_luna      = prima.strftime('%b %Y') if prima else None
+
+    locatii      = Locatie.query.all()
+    locatii_data = [{'id': l.id, 'numeLocatie': l.numeLocatie} for l in locatii]
+
+    if month:
+        # ── Monthly drill-down: weeks of the month ───────────────────────────
+        month_start = date(year, month, 1)
+        month_end   = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+
+        rows = db.session.query(
+            Servicii.dataSpalare,
+            db.case((Servicii.tipPlata != 'CURS', Servicii.pretServicii), else_=0).label('inc'),
+            Servicii.clienti_id
+        ).filter(
+            Servicii.dataSpalare >= month_start,
+            Servicii.dataSpalare < month_end
+        )
+        if locatie_id:
+            rows = rows.filter(Servicii.locatie_id == locatie_id)
+        rows = rows.all()
+
+        weeks     = _month_weeks(year, month)
+        week_data = [{'incasari': 0.0, 'spalari': 0, 'clients': set()} for _ in weeks]
+        for row in rows:
+            d = row.dataSpalare.date() if hasattr(row.dataSpalare, 'date') else row.dataSpalare
+            for i, (ws, we) in enumerate(weeks):
+                if ws <= d < we:
+                    week_data[i]['incasari'] += float(row.inc or 0)
+                    week_data[i]['spalari']  += 1
+                    week_data[i]['clients'].add(row.clienti_id)
+                    break
+
+        mo   = RO_MONTHS_SHORT[month - 1]
+        bars = []
+        for i, (ws, we) in enumerate(weeks):
+            we_inc = we - timedelta(days=1)
+            label  = f'{ws.day} {mo}' if ws.day == we_inc.day else f'{ws.day}-{we_inc.day} {mo}'
+            wd     = week_data[i]
+            bars.append({'label': label, 'incasari': wd['incasari'],
+                         'spalari': wd['spalari'], 'masini': len(wd['clients'])})
+
+        return jsonify({
+            'view':             'monthly',
+            'year':             year,
+            'month':            month,
+            'monthLabel':       f'{RO_MONTHS_FULL[month - 1]} {year}',
+            'bars':             bars,
+            'kpi':              {
+                'incasari': sum(b['incasari'] for b in bars),
+                'spalari':  sum(b['spalari']  for b in bars),
+                'masini':   len({r.clienti_id for r in rows}),
+            },
+            'serviciiBreakdown': _svc_breakdown(locatie_id, month_start, month_end),
+            'locatii':           locatii_data,
+            'availableYears':    available_years,
+            'primaLuna':         prima_luna,
+        })
+
+    else:
+        # ── Annual view: single aggregation query for all 12 months ──────────
+        year_start = date(year, 1, 1)
+        year_end   = date(year + 1, 1, 1)
+
+        monthly_q = db.session.query(
+            extract('month', Servicii.dataSpalare).label('m'),
+            func.sum(db.case((Servicii.tipPlata != 'CURS', Servicii.pretServicii), else_=0)),
+            func.count(Servicii.id),
+            func.count(func.distinct(Servicii.clienti_id))
+        ).filter(
+            Servicii.dataSpalare >= year_start,
+            Servicii.dataSpalare < year_end
+        )
+        if locatie_id:
+            monthly_q = monthly_q.filter(Servicii.locatie_id == locatie_id)
+        stats_by_month = {int(r[0]): r for r in monthly_q.group_by('m').all()}
+
+        bars = []
+        best_label, best_inc = None, -1.0
+        for m in range(1, 13):
+            r    = stats_by_month.get(m)
+            inc  = float(r[1] or 0) if r else 0.0
+            spal = int(r[2] or 0)   if r else 0
+            mas  = int(r[3] or 0)   if r else 0
+            label = RO_MONTHS_SHORT[m - 1]
+            bars.append({'label': label, 'month': m, 'incasari': inc, 'spalari': spal, 'masini': mas})
+            if inc > best_inc:
+                best_inc, best_label = inc, label
+
+        return jsonify({
+            'view': 'annual',
+            'year': year,
+            'bars': bars,
+            'kpi':  {
+                'incasari':   sum(b['incasari'] for b in bars),
+                'spalari':    sum(b['spalari']  for b in bars),
+                'masini':     sum(b['masini']   for b in bars),
+                'lunaDeVarf': best_label,
+            },
+            'serviciiBreakdown': _svc_breakdown(locatie_id, year_start, year_end),
+            'locatii':           locatii_data,
+            'availableYears':    available_years,
+            'primaLuna':         prima_luna,
+        })
+
+
+# ── Clienti ──────────────────────────────────────────────────────────────────
+
+@admin_bp.route('/clienti')
+@login_required
+@admin_required
+def clienti_list():
+    from collections import defaultdict
+    locatie_id = request.args.get('locatie_id', type=int)
+    sort = request.args.get('sort', 'vizite')
+    q_str = request.args.get('q', '').strip().upper()
+
+    # Aggregate per client: visits (distinct timestamps), collected total, last visit
+    stats_q = db.session.query(
+        Servicii.clienti_id,
+        func.count(func.distinct(Servicii.dataSpalare)).label('vizite'),
+        func.sum(
+            db.case((Servicii.tipPlata != 'CURS', Servicii.pretServicii), else_=0)
+        ).label('total'),
+        func.max(Servicii.dataSpalare).label('ultima_spalare'),
+    ).group_by(Servicii.clienti_id)
+    if locatie_id:
+        stats_q = stats_q.filter(Servicii.locatie_id == locatie_id)
+    stats_map = {row.clienti_id: row for row in stats_q.all()}
+
+    # Most common service per client
+    svc_q = db.session.query(
+        Servicii.clienti_id,
+        Servicii.serviciiPrestate,
+        func.count().label('cnt')
+    ).group_by(Servicii.clienti_id, Servicii.serviciiPrestate)
+    if locatie_id:
+        svc_q = svc_q.filter(Servicii.locatie_id == locatie_id)
+    svc_counts = defaultdict(list)
+    for row in svc_q.all():
+        svc_counts[row.clienti_id].append((row.cnt, row.serviciiPrestate))
+    top_svc = {cid: max(v, key=lambda x: x[0])[1] for cid, v in svc_counts.items()}
+
+    # Fetch clients
+    clienti_q = Clienti.query
+    if locatie_id:
+        clienti_q = clienti_q.filter_by(locatie_id=locatie_id)
+    if q_str:
+        clienti_q = clienti_q.filter(
+            db.or_(
+                Clienti.numarAutoturism.contains(q_str),
+                Clienti.marcaAutoturism.contains(q_str)
+            )
+        )
+    all_clients = clienti_q.all()
+
+    result = []
+    for c in all_clients:
+        st = stats_map.get(c.id)
+        if not st:
+            continue
+        result.append({
+            'id': c.id,
+            'numar': c.numarAutoturism,
+            'marca': c.marcaAutoturism or '—',
+            'tip': c.tipAutoturism or '—',
+            'vizite': int(st.vizite or 0),
+            'total': float(st.total or 0),
+            'ultimaSpalare': st.ultima_spalare.isoformat() if st.ultima_spalare else None,
+            'topServiciu': top_svc.get(c.id),
+        })
+
+    if sort == 'total':
+        result.sort(key=lambda x: x['total'], reverse=True)
+    elif sort == 'brand':
+        result.sort(key=lambda x: x['marca'])
+    elif sort == 'data':
+        result.sort(key=lambda x: x['ultimaSpalare'] or '', reverse=True)
+    else:
+        result.sort(key=lambda x: x['vizite'], reverse=True)
+
+    return jsonify({'clienti': result, 'total': len(result)})
 
 
 # ── Settings ────────────────────────────────────────────────────────────────

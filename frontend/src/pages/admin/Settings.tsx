@@ -168,7 +168,7 @@ export default function AdminSettings() {
 
       {tab === 'preturi' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <div className="card overflow-x-auto">
+          <div className="card overflow-x-auto scrollbar-hide">
             <table className="text-sm" style={{ tableLayout: 'fixed', width: '100%' }}>
               <colgroup>
                 <col style={{ width: '200px' }} />
@@ -200,7 +200,7 @@ export default function AdminSettings() {
                         <td key={field} className="py-2 text-center">
                           <input type="number" step="0.01" defaultValue={cur[field] as number}
                             onChange={e => updatePret(p.id, field, e.target.value)}
-                            className="w-20 text-center px-2 py-1 text-sm rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-brand" />
+                            className="w-20 text-center px-2 py-1 text-sm rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-brand [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                         </td>
                       ))}
                     </tr>

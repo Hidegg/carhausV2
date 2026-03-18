@@ -46,7 +46,8 @@ export default function ManagerAnalytics() {
   if (isLoading) return <div className="text-center py-20 text-gray-400">Se incarca...</div>
   if (!data) return null
 
-  const collected = data.cash + data.card
+  // CURS = pending proxy, never real income
+  const collected = data.cash + data.card + data.contract + data.protocol
   const pending = data.curs
 
   return (
@@ -57,8 +58,8 @@ export default function ManagerAnalytics() {
       {/* Top summary */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
         className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Total Incasat" value={`${collected.toFixed(0)} RON`} sub="CASH + CARD" accent />
-        <StatCard label="In Curs" value={`${pending.toFixed(0)} RON`} sub="neincasat" />
+        <StatCard label="Total Incasat" value={`${collected.toFixed(0)} RON`} sub="fara CURS" accent />
+        <StatCard label="De Incasat" value={`${pending.toFixed(0)} RON`} sub="CURS in asteptare" />
         <StatCard label="Masini" value={String(data.masini)} sub="vehicule azi" />
         <StatCard label="Servicii" value={String(data.servicii_count)} sub="total operatiuni" />
       </motion.div>
@@ -68,35 +69,15 @@ export default function ManagerAnalytics() {
         className="card p-4">
         <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-4">Incasari</h3>
         <div className="grid grid-cols-3 gap-4 gap-y-5">
-          {/* Row 1: CASH / CARD / CURS */}
-          <div className="col-span-3 grid grid-cols-3 gap-4">
-            {[
-              { label: 'CASH', value: data.cash, color: 'bg-green-500' },
-              { label: 'CARD', value: data.card, color: 'bg-blue-500' },
-              { label: 'CURS', value: data.curs, color: 'bg-yellow-400' },
-            ].map(({ label, value, color }) => {
-              const pct = data.total > 0 ? (value / data.total) * 100 : 0
-              return (
-                <div key={label}>
-                  <div className="flex justify-between items-end mb-1.5">
-                    <span className="text-xs font-medium text-gray-500">{label}</span>
-                    <span className="text-sm font-bold text-gray-900 dark:text-white">{value.toFixed(0)} RON</span>
-                  </div>
-                  <div className="h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                    <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
-                  </div>
-                  <div className="text-xs text-gray-400 mt-1">{pct.toFixed(0)}%</div>
-                </div>
-              )
-            })}
-          </div>
-          {/* Row 2: CONTRACT / PROTOCOL */}
+          {/* Collected: CASH / CARD / CONTRACT / PROTOCOL */}
           <div className="col-span-3 grid grid-cols-2 gap-4">
             {[
+              { label: 'CASH',     value: data.cash,     color: 'bg-green-500'  },
+              { label: 'CARD',     value: data.card,     color: 'bg-blue-500'   },
               { label: 'CONTRACT', value: data.contract, color: 'bg-purple-500' },
               { label: 'PROTOCOL', value: data.protocol, color: 'bg-orange-500' },
             ].map(({ label, value, color }) => {
-              const pct = data.total > 0 ? (value / data.total) * 100 : 0
+              const pct = collected > 0 ? (value / collected) * 100 : 0
               return (
                 <div key={label}>
                   <div className="flex justify-between items-end mb-1.5">
@@ -111,6 +92,18 @@ export default function ManagerAnalytics() {
               )
             })}
           </div>
+          {/* CURS — pending, separate section */}
+          {data.curs > 0 && (
+          <div className="col-span-3">
+            <div className="flex justify-between items-end mb-1.5">
+              <span className="text-xs font-medium text-yellow-600 dark:text-yellow-400">CURS <span className="text-gray-400 font-normal">— de incasat</span></span>
+              <span className="text-sm font-bold text-yellow-600 dark:text-yellow-400">{data.curs.toFixed(0)} RON</span>
+            </div>
+            <div className="h-1.5 bg-yellow-100 dark:bg-yellow-900/20 rounded-full overflow-hidden">
+              <div className="h-full bg-yellow-400 rounded-full w-full" />
+            </div>
+          </div>
+          )}
         </div>
       </motion.div>
 

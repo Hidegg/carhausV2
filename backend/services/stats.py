@@ -35,33 +35,49 @@ def query_servicii(locatie_id, start, end):
     return q.all()
 
 
+REAL_PAYMENT_TYPES = {'CASH', 'CARD', 'CONTRACT', 'PROTOCOL'}
+
+
 def get_period_stats(servicii):
     clienti_ids = list({s.clienti_id for s in servicii})
     clienti_noi = Clienti.query.filter(Clienti.id.in_(clienti_ids)).count() if clienti_ids else 0
 
-    spalari_tip_plata = {'CASH': 0, 'CARD': 0, 'CURS': 0}
-    incasari_tip_plata = {'CASH': 0.0, 'CARD': 0.0, 'CURS': 0.0}
+    # CURS is a pending proxy — tracked separately, never included in incasari
+    spalari_tip_plata = {'CASH': 0, 'CARD': 0, 'CURS': 0, 'CONTRACT': 0, 'PROTOCOL': 0}
+    incasari_tip_plata = {'CASH': 0.0, 'CARD': 0.0, 'CONTRACT': 0.0, 'PROTOCOL': 0.0}
+    curs_count = 0
+    curs_amount = 0.0
     spalari_per_spalator = {}
     comision_per_spalator = {}
     spalari_tip_serviciu = {}
     incasari_tip_serviciu = {}
 
     for s in servicii:
-        tip = s.tipPlata if s.tipPlata in spalari_tip_plata else 'CURS'
-        spalari_tip_plata[tip] += 1
-        incasari_tip_plata[tip] += s.pretServicii or 0
+        pret = s.pretServicii or 0
+        tip = s.tipPlata
+
+        if tip == 'CURS':
+            spalari_tip_plata['CURS'] += 1
+            curs_count += 1
+            curs_amount += pret
+        else:
+            real_tip = tip if tip in REAL_PAYMENT_TYPES else 'CASH'
+            spalari_tip_plata[real_tip] += 1
+            incasari_tip_plata[real_tip] += pret
 
         nume = s.spalatori.numeSpalator if s.spalatori else 'Necunoscut'
         spalari_per_spalator[nume] = spalari_per_spalator.get(nume, 0) + 1
+        # Comision tracked regardless of payment status
         comision_per_spalator[nume] = comision_per_spalator.get(nume, 0) + (s.comisionServicii or 0)
 
         sv = s.serviciiPrestate
         spalari_tip_serviciu[sv] = spalari_tip_serviciu.get(sv, 0) + 1
-        incasari_tip_serviciu[sv] = incasari_tip_serviciu.get(sv, 0.0) + (s.pretServicii or 0)
+        incasari_tip_serviciu[sv] = incasari_tip_serviciu.get(sv, 0.0) + pret
 
     return {
         'spalari': len(servicii),
-        'incasari': sum(s.pretServicii or 0 for s in servicii),
+        'incasari': sum(incasari_tip_plata.values()),  # CURS excluded
+        'cursInAsteptare': {'count': curs_count, 'amount': curs_amount},
         'clientiNoi': clienti_noi,
         'spalariTipPlata': spalari_tip_plata,
         'incasariTipPlata': incasari_tip_plata,

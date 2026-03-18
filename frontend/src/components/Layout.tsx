@@ -16,7 +16,7 @@ export default function Layout() {
   }, [dark])
 
   return (
-    <div className={`h-screen flex flex-col overflow-hidden${user?.rol === 'manager' ? ' manager-theme' : ''}`}>
+    <div className={`h-screen flex flex-col overflow-hidden${user?.rol === 'manager' ? ' manager-theme' : user?.rol === 'dev' ? ' dev-theme' : ''}`}>
       <Navbar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} dark={dark} setDark={setDark} />
       <div className="flex flex-1 overflow-hidden relative">
         <AnimatePresence>
@@ -41,12 +41,14 @@ export default function Layout() {
         </AnimatePresence>
 
         <motion.main
-          className="flex-1 overflow-y-auto p-6"
+          className="flex-1 overflow-y-auto p-4"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
         >
-          <Outlet />
+          <div className={user?.rol === 'admin' ? 'max-w-2xl mx-auto' : ''}>
+            <Outlet />
+          </div>
         </motion.main>
       </div>
     </div>

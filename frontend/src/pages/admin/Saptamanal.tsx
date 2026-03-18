@@ -45,8 +45,8 @@ export default function AdminSaptamanal() {
             <XAxis dataKey="name" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} />
             <Tooltip formatter={(v: number) => [`${v} RON`]} />
-            <Bar dataKey="cur" name="Curenta" fill="#8B5E3C" radius={[4,4,0,0]} />
-            <Bar dataKey="prev" name="Trecuta" fill="#d1b49a" radius={[4,4,0,0]} />
+            <Bar dataKey="cur" name="Curenta" fill="#2563eb" radius={[4,4,0,0]} />
+            <Bar dataKey="prev" name="Trecuta" fill="#93c5fd" radius={[4,4,0,0]} />
           </BarChart>
         </ResponsiveContainer>
       </motion.div>

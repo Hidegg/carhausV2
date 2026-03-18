@@ -52,8 +52,8 @@ export default function AdminZilnic() {
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip />
-              <Bar dataKey="azi" name="Azi" fill="#8B5E3C" radius={[4,4,0,0]} />
-              <Bar dataKey="ieri" name="Ieri" fill="#d1b49a" radius={[4,4,0,0]} />
+              <Bar dataKey="azi" name="Azi" fill="#2563eb" radius={[4,4,0,0]} />
+              <Bar dataKey="ieri" name="Ieri" fill="#93c5fd" radius={[4,4,0,0]} />
             </BarChart>
           </ResponsiveContainer>
         </motion.div>
@@ -64,8 +64,8 @@ export default function AdminZilnic() {
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip formatter={(v: number) => [`${v.toFixed(0)} RON`]} />
-              <Bar dataKey="azi" name="Azi" fill="#8B5E3C" radius={[4,4,0,0]} />
-              <Bar dataKey="ieri" name="Ieri" fill="#d1b49a" radius={[4,4,0,0]} />
+              <Bar dataKey="azi" name="Azi" fill="#2563eb" radius={[4,4,0,0]} />
+              <Bar dataKey="ieri" name="Ieri" fill="#93c5fd" radius={[4,4,0,0]} />
             </BarChart>
           </ResponsiveContainer>
         </motion.div>
@@ -76,7 +76,7 @@ export default function AdminZilnic() {
               <XAxis type="number" tick={{ fontSize: 11 }} />
               <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={80} />
               <Tooltip />
-              <Bar dataKey="value" name="Spalari" fill="#8B5E3C" radius={[0,4,4,0]} />
+              <Bar dataKey="value" name="Spalari" fill="#2563eb" radius={[0,4,4,0]} />
             </BarChart>
           </ResponsiveContainer>
         </motion.div>
