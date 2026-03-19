@@ -25,10 +25,13 @@ with app.app_context():
         upgrade()
         print('[deploy] Done.')
 
-    # Guard: add columns that may have been missed if Alembic was stamped ahead
+    # Guard: ensure columns exist and are wide enough regardless of Alembic state
     with db.engine.connect() as conn:
         conn.execute(db.text(
             "ALTER TABLE servicii ADD COLUMN IF NOT EXISTS notite VARCHAR(500)"
+        ))
+        conn.execute(db.text(
+            'ALTER TABLE "user" ALTER COLUMN password_hash TYPE VARCHAR(512)'
         ))
         conn.commit()
 

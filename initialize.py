@@ -38,7 +38,7 @@ with app.app_context():
         db.session.commit()
         print("Created location: CARANFIL")
 
-    # Users — each checked independently so a partial previous run is repaired
+    # Users — create if missing, repair hash if truncated/corrupt
     users_to_create = [
         ("admin",              "admin",   "12345678",  None),
         ("dev",                "dev",     "87654321",  None),
@@ -46,11 +46,16 @@ with app.app_context():
         ("carhaus_caranfil",   "manager", "password",  caranfil.id),
     ]
     for username, rol, password, locatie_id in users_to_create:
-        if not User.query.filter_by(username=username).first():
+        u = User.query.filter_by(username=username).first()
+        if not u:
             u = User(username=username, rol=rol, locatie_id=locatie_id)
             u.set_password(password)
             db.session.add(u)
             print(f"Created user: {username}")
+        elif not u.check_password(password):
+            # Hash is corrupt (e.g. was truncated when column was VARCHAR(128))
+            u.set_password(password)
+            print(f"Repaired password hash for: {username}")
     db.session.commit()
 
     # Washers — idempotent
