@@ -27,23 +27,22 @@ def overview():
     total_comision = db.session.query(func.sum(Servicii.comisionServicii)).scalar() or 0
 
     locatii = Locatie.query.all()
-    per_locatie = []
-    for loc in locatii:
-        sp = Servicii.query.filter_by(locatie_id=loc.id).count()
-        inc = db.session.query(func.sum(Servicii.pretServicii)).filter(
-            Servicii.locatie_id == loc.id).scalar() or 0
-        cl = Clienti.query.filter_by(locatie_id=loc.id).count()
-        spalatori_count = Spalatori.query.filter_by(locatie_id=loc.id).count()
-        managers_count = User.query.filter_by(locatie_id=loc.id, rol='manager').count()
-        per_locatie.append({
-            'id': loc.id,
-            'numeLocatie': loc.numeLocatie,
-            'totalServicii': sp,
-            'totalIncasari': float(inc),
-            'totalClienti': cl,
-            'totalSpalatori': spalatori_count,
-            'totalManageri': managers_count,
-        })
+
+    servicii_counts = dict(db.session.query(Servicii.locatie_id, func.count(Servicii.id)).group_by(Servicii.locatie_id).all())
+    incasari_totals = dict(db.session.query(Servicii.locatie_id, func.sum(Servicii.pretServicii)).group_by(Servicii.locatie_id).all())
+    clienti_counts = dict(db.session.query(Clienti.locatie_id, func.count(Clienti.id)).group_by(Clienti.locatie_id).all())
+    spalatori_counts = dict(db.session.query(Spalatori.locatie_id, func.count(Spalatori.id)).group_by(Spalatori.locatie_id).all())
+    managers_counts = dict(db.session.query(User.locatie_id, func.count(User.id)).filter(User.rol == 'manager').group_by(User.locatie_id).all())
+
+    per_locatie = [{
+        'id': loc.id,
+        'numeLocatie': loc.numeLocatie,
+        'totalServicii': servicii_counts.get(loc.id, 0),
+        'totalIncasari': float(incasari_totals.get(loc.id) or 0),
+        'totalClienti': clienti_counts.get(loc.id, 0),
+        'totalSpalatori': spalatori_counts.get(loc.id, 0),
+        'totalManageri': managers_counts.get(loc.id, 0),
+    } for loc in locatii]
 
     return jsonify({
         'allTime': {
@@ -78,10 +77,21 @@ def clients():
 
     loc_map = {l.id: l.numeLocatie for l in Locatie.query.all()}
 
+    client_ids = [c.id for c in clienti]
+    last_service_map = dict(
+        db.session.query(Servicii.clienti_id, func.max(Servicii.dataSpalare))
+        .filter(Servicii.clienti_id.in_(client_ids))
+        .group_by(Servicii.clienti_id).all()
+    ) if client_ids else {}
+    service_count_map = dict(
+        db.session.query(Servicii.clienti_id, func.count(Servicii.id))
+        .filter(Servicii.clienti_id.in_(client_ids))
+        .group_by(Servicii.clienti_id).all()
+    ) if client_ids else {}
+
     result = []
     for c in clienti:
-        last = Servicii.query.filter_by(clienti_id=c.id).order_by(
-            Servicii.dataSpalare.desc()).first()
+        last_date = last_service_map.get(c.id)
         result.append({
             'id': c.id,
             'numarAutoturism': c.numarAutoturism,
@@ -90,8 +100,8 @@ def clients():
             'emailClient': c.emailClient,
             'telefonClient': c.telefonClient,
             'locatie': loc_map.get(c.locatie_id),
-            'totalServicii': len(c.servicii),
-            'ultimaSpalare': last.dataSpalare.isoformat() if last else None,
+            'totalServicii': service_count_map.get(c.id, 0),
+            'ultimaSpalare': last_date.isoformat() if last_date else None,
             'gdpr': c.gdprAcceptat,
             'newsletter': c.newsletterAcceptat,
         })

@@ -93,21 +93,25 @@ def add_serviciu():
 
     ultimul = Servicii.query.filter(
         db.func.date(Servicii.dataSpalare) == dataSpalare.date()
-    ).order_by(Servicii.numarCurent.desc()).first()
+    ).order_by(Servicii.numarCurent.desc()).with_for_update().first()
     numarCurent = (ultimul.numarCurent + 1) if ultimul else 1
 
     servicii_adaugate = []
-    for serviciu_name in data.get('serviciiPrestate', []):
+    servicii_list = data.get('serviciiPrestate', [])
+    if not servicii_list:
+        return jsonify({'error': 'Trebuie selectat cel putin un serviciu'}), 400
+
+    for serviciu_name in servicii_list:
         pret_obj = PretServicii.query.filter_by(serviciiPrestate=serviciu_name).first()
-        pret, comision = 0.0, 0.0
-        if pret_obj:
-            tip = client.tipAutoturism
-            if tip == 'SUV':
-                pret, comision = pret_obj.pretSUV, pret_obj.comisionSUV
-            elif tip == 'VAN':
-                pret, comision = pret_obj.pretVan, pret_obj.comisionVan
-            else:
-                pret, comision = pret_obj.pretAutoturism, pret_obj.comisionAutoturism
+        if not pret_obj:
+            return jsonify({'error': f'Serviciu "{serviciu_name}" nu a fost gasit in lista de preturi'}), 400
+        tip = client.tipAutoturism
+        if tip == 'SUV':
+            pret, comision = pret_obj.pretSUV, pret_obj.comisionSUV
+        elif tip == 'VAN':
+            pret, comision = pret_obj.pretVan, pret_obj.comisionVan
+        else:
+            pret, comision = pret_obj.pretAutoturism, pret_obj.comisionAutoturism
 
         s = Servicii(
             serviciiPrestate=serviciu_name,

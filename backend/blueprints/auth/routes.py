@@ -1,11 +1,13 @@
 from flask import Blueprint, request, jsonify, session
 from flask_login import login_user, logout_user, login_required, current_user
 from backend.models import User
+from backend.extensions import limiter
 
 auth_bp = Blueprint('auth', __name__)
 
 
 @auth_bp.route('/login', methods=['POST'])
+@limiter.limit("10 per minute")
 def login():
     data = request.get_json()
     user = User.query.filter_by(username=data.get('username')).first()

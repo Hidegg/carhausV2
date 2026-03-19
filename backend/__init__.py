@@ -1,7 +1,7 @@
 import os
 from flask import Flask
 from backend.config import Config
-from backend.extensions import db, login_manager, migrate, cors
+from backend.extensions import db, login_manager, migrate, cors, limiter
 
 
 def create_app():
@@ -11,6 +11,7 @@ def create_app():
     db.init_app(app)
     login_manager.init_app(app)
     migrate.init_app(app, db)
+    limiter.init_app(app)
     _cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:5173').split(',')
     cors.init_app(app, supports_credentials=True, origins=_cors_origins)
 

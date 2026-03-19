@@ -3,6 +3,7 @@ flask-sqlalchemy
 flask-login
 flask-migrate
 flask-cors
+flask-limiter
 python-dateutil
 python-dotenv
 psycopg2-binary

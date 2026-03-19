@@ -129,7 +129,7 @@ export default function ManagerForm() {
   return (
     <div className="max-w-2xl mx-auto">
       {brandPickerOpen && (
-        <BrandPicker onSelect={name => setMarca(name)} onClose={() => setBrandPickerOpen(false)} />
+        <BrandPicker selected={marca ? [marca] : []} onConfirm={names => { if (names[0]) setMarca(names[0]) }} onClose={() => setBrandPickerOpen(false)} />
       )}
       {mutation.isError && (
         <div className="mb-4 px-4 py-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg text-sm">

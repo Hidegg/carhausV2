@@ -1,13 +1,15 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 from zoneinfo import ZoneInfo
 from dateutil.relativedelta import relativedelta
+from sqlalchemy import func
 from backend.extensions import db
-from backend.models import Servicii, Clienti
+from backend.models import Servicii, Spalatori
 
 BUCHAREST = ZoneInfo('Europe/Bucharest')
 
 
 def get_date_ranges():
+    from datetime import datetime
     today = datetime.now(BUCHAREST).date()
     return {
         'ziuaCurenta':      (today, today + timedelta(days=1)),
@@ -25,73 +27,94 @@ def get_date_ranges():
     }
 
 
-def query_servicii(locatie_id, start, end):
-    q = Servicii.query.filter(
-        Servicii.dataSpalare >= start,
-        Servicii.dataSpalare < end
-    )
-    if locatie_id is not None:
-        q = q.filter(Servicii.locatie_id == locatie_id)
-    return q.all()
-
-
 REAL_PAYMENT_TYPES = {'CASH', 'CARD', 'CONTRACT', 'PROTOCOL'}
 
 
-def get_period_stats(servicii):
-    clienti_ids = list({s.clienti_id for s in servicii})
-    clienti_noi = Clienti.query.filter(Clienti.id.in_(clienti_ids)).count() if clienti_ids else 0
+def get_period_stats(locatie_id, start, end):
+    base = [Servicii.dataSpalare >= start, Servicii.dataSpalare < end]
+    if locatie_id is not None:
+        base.append(Servicii.locatie_id == locatie_id)
 
-    # CURS is a pending proxy — tracked separately, never included in incasari
+    # Payment type aggregation
+    payment_rows = (
+        db.session.query(
+            Servicii.tipPlata,
+            func.count(Servicii.id).label('cnt'),
+            func.sum(Servicii.pretServicii).label('total'),
+        )
+        .filter(*base)
+        .group_by(Servicii.tipPlata)
+        .all()
+    )
+
+    # Spalator aggregation
+    spalator_rows = (
+        db.session.query(
+            Spalatori.numeSpalator,
+            func.count(Servicii.id).label('cnt'),
+            func.sum(Servicii.comisionServicii).label('comision'),
+        )
+        .join(Spalatori, Servicii.spalatori_id == Spalatori.id)
+        .filter(*base)
+        .group_by(Spalatori.numeSpalator)
+        .all()
+    )
+
+    # Service type aggregation
+    service_rows = (
+        db.session.query(
+            Servicii.serviciiPrestate,
+            func.count(Servicii.id).label('cnt'),
+            func.sum(Servicii.pretServicii).label('total'),
+        )
+        .filter(*base)
+        .group_by(Servicii.serviciiPrestate)
+        .all()
+    )
+
+    # Unique cars served
+    masini = db.session.query(
+        func.count(func.distinct(Servicii.clienti_id))
+    ).filter(*base).scalar() or 0
+
+    # Process payment rows
     spalari_tip_plata = {'CASH': 0, 'CARD': 0, 'CURS': 0, 'CONTRACT': 0, 'PROTOCOL': 0}
     incasari_tip_plata = {'CASH': 0.0, 'CARD': 0.0, 'CONTRACT': 0.0, 'PROTOCOL': 0.0}
     curs_count = 0
     curs_amount = 0.0
-    spalari_per_spalator = {}
-    comision_per_spalator = {}
-    spalari_tip_serviciu = {}
-    incasari_tip_serviciu = {}
+    total_spalari = 0
 
-    for s in servicii:
-        pret = s.pretServicii or 0
-        tip = s.tipPlata
-
+    for row in payment_rows:
+        tip = row.tipPlata
+        cnt = row.cnt or 0
+        total = float(row.total or 0)
+        total_spalari += cnt
         if tip == 'CURS':
-            spalari_tip_plata['CURS'] += 1
-            curs_count += 1
-            curs_amount += pret
+            spalari_tip_plata['CURS'] += cnt
+            curs_count += cnt
+            curs_amount += total
         else:
             real_tip = tip if tip in REAL_PAYMENT_TYPES else 'CASH'
-            spalari_tip_plata[real_tip] += 1
-            incasari_tip_plata[real_tip] += pret
-
-        nume = s.spalatori.numeSpalator if s.spalatori else 'Necunoscut'
-        spalari_per_spalator[nume] = spalari_per_spalator.get(nume, 0) + 1
-        # Comision tracked regardless of payment status
-        comision_per_spalator[nume] = comision_per_spalator.get(nume, 0) + (s.comisionServicii or 0)
-
-        sv = s.serviciiPrestate
-        spalari_tip_serviciu[sv] = spalari_tip_serviciu.get(sv, 0) + 1
-        incasari_tip_serviciu[sv] = incasari_tip_serviciu.get(sv, 0.0) + pret
+            spalari_tip_plata[real_tip] += cnt
+            incasari_tip_plata[real_tip] += total
 
     return {
-        'spalari': len(servicii),
-        'incasari': sum(incasari_tip_plata.values()),  # CURS excluded
+        'spalari': total_spalari,
+        'incasari': sum(incasari_tip_plata.values()),
         'cursInAsteptare': {'count': curs_count, 'amount': curs_amount},
-        'clientiNoi': clienti_noi,
+        'clientiNoi': masini,
         'spalariTipPlata': spalari_tip_plata,
         'incasariTipPlata': incasari_tip_plata,
-        'spalariPerSpalator': spalari_per_spalator,
-        'comisionPerSpalator': comision_per_spalator,
-        'spalariTipServiciu': spalari_tip_serviciu,
-        'incasariTipServiciu': incasari_tip_serviciu,
+        'spalariPerSpalator': {r.numeSpalator: r.cnt for r in spalator_rows},
+        'comisionPerSpalator': {r.numeSpalator: float(r.comision or 0) for r in spalator_rows},
+        'spalariTipServiciu': {r.serviciiPrestate: r.cnt for r in service_rows},
+        'incasariTipServiciu': {r.serviciiPrestate: float(r.total or 0) for r in service_rows},
     }
 
 
 def get_location_report(locatie_id):
     ranges = get_date_ranges()
-    report = {}
-    for period_name, (start, end) in ranges.items():
-        servicii = query_servicii(locatie_id, start, end)
-        report[period_name] = get_period_stats(servicii)
-    return report
+    return {
+        period_name: get_period_stats(locatie_id, start, end)
+        for period_name, (start, end) in ranges.items()
+    }

@@ -73,16 +73,16 @@ class Servicii(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     serviciiPrestate = db.Column(db.String(50), nullable=False)
-    dataSpalare = db.Column(db.DateTime, nullable=False)
+    dataSpalare = db.Column(db.DateTime, nullable=False, index=True)
     numarCurent = db.Column(db.Integer, nullable=False)
     pretServicii = db.Column(db.Float, nullable=True)
     comisionServicii = db.Column(db.Float, nullable=True)
     tipPlata = db.Column(db.String(50), nullable=False)
     nrFirma = db.Column(db.String(100), nullable=True)
 
-    clienti_id = db.Column(db.Integer, db.ForeignKey('clienti.id'), nullable=False)
+    clienti_id = db.Column(db.Integer, db.ForeignKey('clienti.id'), nullable=False, index=True)
     spalatori_id = db.Column(db.Integer, db.ForeignKey('spalatori.id'), nullable=False)
-    locatie_id = db.Column(db.Integer, db.ForeignKey('locatie.id'), nullable=False)
+    locatie_id = db.Column(db.Integer, db.ForeignKey('locatie.id'), nullable=False, index=True)
 
     spalatori = db.relationship('Spalatori', backref='servicii', lazy=True)
 

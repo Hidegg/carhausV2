@@ -57,7 +57,7 @@ export default function AdminRapoarte() {
   const paymentChart = [
     { name: 'CASH',     value: cur?.incasariTipPlata?.CASH     ?? 0 },
     { name: 'CARD',     value: cur?.incasariTipPlata?.CARD     ?? 0 },
-    { name: 'CURS',     value: cur?.incasariTipPlata?.CURS     ?? 0 },
+    { name: 'CURS',     value: cur?.cursInAsteptare?.amount    ?? 0 },
     { name: 'CONTRACT', value: cur?.incasariTipPlata?.CONTRACT ?? 0 },
     { name: 'PROTOCOL', value: cur?.incasariTipPlata?.PROTOCOL ?? 0 },
   ].filter(row => row.value > 0)

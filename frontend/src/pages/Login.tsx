@@ -71,24 +71,6 @@ export default function Login() {
             </button>
           </form>
 
-          {/* DEV ONLY — remove in production */}
-          <div className="mt-5 pt-4 border-t border-dashed border-gray-200 dark:border-gray-700">
-            <p className="text-xs text-gray-400 mb-2 uppercase tracking-wide">Test accounts</p>
-            <div className="space-y-1">
-              {[
-                { u: 'admin', p: '12345678', role: 'admin' },
-                { u: 'carhaus_straulesti', p: 'password1', role: 'manager' },
-                { u: 'carhaus_caranfil', p: 'password', role: 'manager' },
-              ].map(a => (
-                <button key={a.u} type="button"
-                  onClick={() => { setUsername(a.u); setPassword(a.p) }}
-                  className="w-full text-left px-3 py-1.5 rounded text-xs hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors font-mono flex justify-between">
-                  <span>{a.u}</span>
-                  <span className="text-gray-400">{a.p} · {a.role}</span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </motion.div>
     </div>
