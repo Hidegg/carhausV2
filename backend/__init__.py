@@ -1,3 +1,4 @@
+import os
 from flask import Flask
 from backend.config import Config
 from backend.extensions import db, login_manager, migrate, cors
@@ -10,7 +11,8 @@ def create_app():
     db.init_app(app)
     login_manager.init_app(app)
     migrate.init_app(app, db)
-    cors.init_app(app, supports_credentials=True, origins=['http://localhost:5173'])
+    _cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:5173').split(',')
+    cors.init_app(app, supports_credentials=True, origins=_cors_origins)
 
     from backend.models import User
 
@@ -33,12 +35,14 @@ def create_app():
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
     app.register_blueprint(dev_bp, url_prefix='/api/dev')
 
-    # Weekly backup scheduler (Sunday 03:00)
-    from apscheduler.schedulers.background import BackgroundScheduler
-    from backup import backup_database
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(backup_database, 'cron', day_of_week='sun', hour=3, minute=0)
-    scheduler.start()
+    # Weekly backup scheduler (Sunday 03:00) — SQLite only
+    db_url = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+    if db_url.startswith('sqlite'):
+        from apscheduler.schedulers.background import BackgroundScheduler
+        from backup import backup_database
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(backup_database, 'cron', day_of_week='sun', hour=3, minute=0)
+        scheduler.start()
 
     # Serve React app for all non-API routes in production
     @app.route('/', defaults={'path': ''})
