@@ -48,7 +48,7 @@ export default function Layout() {
         </AnimatePresence>
 
         <motion.main
-          className="flex-1 overflow-y-auto p-5 md:p-6"
+          className="flex-1 overflow-y-auto overflow-x-hidden p-5 md:p-6"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
