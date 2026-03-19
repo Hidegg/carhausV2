@@ -61,6 +61,10 @@ def day_start(date_):
 
 
 with app.app_context():
+    if Servicii.query.first():
+        print("Services already seeded, skipping.")
+        exit(0)
+
     locatii = Locatie.query.all()
     preturi = {p.serviciiPrestate: p for p in PretServicii.query.all()}
 

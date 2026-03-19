@@ -2,7 +2,7 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "FLASK_APP=run.py /opt/venv/bin/python deploy.py && /opt/venv/bin/python initialize.py && /opt/venv/bin/gunicorn run:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120"
+startCommand = "FLASK_APP=run.py /opt/venv/bin/python deploy.py && /opt/venv/bin/python initialize.py && /opt/venv/bin/python seed_services.py && /opt/venv/bin/gunicorn run:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120"
 healthcheckPath = "/"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
