@@ -11,6 +11,7 @@ import AdminOverview from './pages/admin/Overview'
 import AdminRapoarte from './pages/admin/Rapoarte'
 import AdminIstoric from './pages/admin/Istoric'
 import AdminClienti from './pages/admin/Clienti'
+import AdminClientDetail from './pages/admin/ClientDetail'
 import AdminSpalatori from './pages/admin/Spalatori'
 import AdminSettings from './pages/admin/Settings'
 import DevOverview from './pages/dev/Overview'
@@ -63,6 +64,7 @@ function AppRoutes() {
         <Route path="/admin/rapoarte" element={<ProtectedRoute adminOnly><AdminRapoarte /></ProtectedRoute>} />
         <Route path="/admin/istoric" element={<ProtectedRoute adminOnly><AdminIstoric /></ProtectedRoute>} />
         <Route path="/admin/clienti" element={<ProtectedRoute adminOnly><AdminClienti /></ProtectedRoute>} />
+        <Route path="/admin/clienti/:plate" element={<ProtectedRoute adminOnly><AdminClientDetail /></ProtectedRoute>} />
         <Route path="/admin/spalatori" element={<ProtectedRoute adminOnly><AdminSpalatori /></ProtectedRoute>} />
         <Route path="/admin/settings" element={<ProtectedRoute adminOnly><AdminSettings /></ProtectedRoute>} />
 

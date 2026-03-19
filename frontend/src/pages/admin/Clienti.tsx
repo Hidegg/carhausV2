@@ -1,16 +1,17 @@
 import { useState } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Search, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Tag, X } from 'lucide-react'
 import { adminApi } from '../../api/client'
 import { AdminClientiResponse } from '../../types'
+import BrandPicker from '../../components/BrandPicker'
 
-type Sort = 'vizite' | 'total' | 'brand' | 'data'
+type Sort = 'vizite' | 'total' | 'data'
 
 const SORT_LABELS: Record<Sort, string> = {
   vizite: 'Frecventa',
   total:  'Total cheltuit',
-  brand:  'Brand',
   data:   'Ultima vizita',
 }
 
@@ -20,8 +21,12 @@ function fmt(iso: string | null) {
 }
 
 export default function AdminClienti() {
+  const navigate = useNavigate()
   const [sort, setSort] = useState<Sort>('vizite')
+  const [dir, setDir] = useState<'asc' | 'desc'>('desc')
   const [q, setQ] = useState('')
+  const [brand, setBrand] = useState('')
+  const [showBrandPicker, setShowBrandPicker] = useState(false)
   const [activeTab, setActiveTab] = useState<string>()
 
   const { data: settingsData } = useQuery<{ locatii: { id: number; numeLocatie: string }[] }>({
@@ -37,52 +42,74 @@ export default function AdminClienti() {
   const locatieId = settingsData?.locatii.find(l => l.numeLocatie === tab)?.id
 
   const { data, isLoading } = useQuery<AdminClientiResponse>({
-    queryKey: ['admin', 'clienti', locatieId, sort, q],
-    queryFn: () => adminApi.clienti({ locatie_id: locatieId, sort, q: q || undefined }),
+    queryKey: ['admin', 'clienti', locatieId, sort, dir, q, brand],
+    queryFn: () => adminApi.clienti({ locatie_id: locatieId, sort, dir, q: q || undefined, brand: brand || undefined }),
     enabled: tabs.length > 0,
     placeholderData: keepPreviousData,
   })
 
   const clienti = data?.clienti ?? []
 
+  function handleSort(s: Sort) {
+    if (s === sort) setDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setSort(s); setDir('desc') }
+  }
+
   return (
     <div>
       {/* Controls */}
-      <div className="flex flex-wrap gap-2 items-center justify-between mb-6">
-        {/* Sort */}
-        <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
-          {(Object.keys(SORT_LABELS) as Sort[]).map(s => (
-            <button key={s} onClick={() => setSort(s)}
-              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                sort === s
-                  ? 'bg-white dark:bg-[#1f1f1f] text-brand shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}>
-              {SORT_LABELS[s]}
-            </button>
-          ))}
+      <div className="flex flex-wrap gap-2 items-center justify-between mb-4">
+        {/* Location nav */}
+        <div className="flex items-center gap-1">
+          <button onClick={prevTab} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-sm font-semibold min-w-[7rem] text-center">{tab}</span>
+          <button onClick={nextTab} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
+            <ChevronRight size={16} />
+          </button>
         </div>
 
-        {/* Location nav + search */}
-        <div className="flex gap-2 flex-wrap items-center">
-          <div className="flex items-center gap-1">
-            <button onClick={prevTab} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
-              <ChevronLeft size={16} />
-            </button>
-            <span className="text-sm font-semibold min-w-[7rem] text-center">{tab}</span>
-            <button onClick={nextTab} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
-              <ChevronRight size={16} />
-            </button>
-          </div>
+        {/* Search + brand */}
+        <div className="flex gap-2 items-center flex-wrap">
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               value={q} onChange={e => setQ(e.target.value)}
-              placeholder="Numar / brand..."
-              className="pl-8 pr-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1f1f1f] outline-none focus:border-brand w-44"
+              placeholder="Numar..."
+              className="pl-8 pr-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1f1f1f] outline-none focus:border-brand w-36"
             />
           </div>
+
+          {brand ? (
+            <button onClick={() => setBrand('')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-brand text-white">
+              {brand}
+              <X size={13} />
+            </button>
+          ) : (
+            <button onClick={() => setShowBrandPicker(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg card text-sm font-medium text-gray-500 hover:text-brand transition-colors">
+              <Tag size={14} />
+              Brand
+            </button>
+          )}
         </div>
+      </div>
+
+      {/* Sort row */}
+      <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg mb-4 w-fit">
+        {(Object.keys(SORT_LABELS) as Sort[]).map(s => (
+          <button key={s} onClick={() => handleSort(s)}
+            className={`flex items-center gap-1 px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+              sort === s
+                ? 'bg-white dark:bg-[#1f1f1f] text-brand shadow-sm'
+                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}>
+            {SORT_LABELS[s]}
+            {sort === s && (dir === 'desc' ? <ArrowDown size={12} /> : <ArrowUp size={12} />)}
+          </button>
+        ))}
       </div>
 
       {/* Stats row */}
@@ -123,7 +150,9 @@ export default function AdminClienti() {
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {clienti.map((c, i) => (
-                <tr key={c.id} className="hover:bg-gray-50/70 dark:hover:bg-white/[0.03]">
+                <tr key={c.id}
+                  onClick={() => navigate(`/admin/clienti/${c.numar}`)}
+                  className="hover:bg-gray-50/70 dark:hover:bg-white/[0.03] cursor-pointer">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400 w-5 shrink-0">{i + 1}</span>
@@ -148,6 +177,14 @@ export default function AdminClienti() {
           </div>
         )}
       </motion.div>
+
+      {/* Brand picker modal */}
+      {showBrandPicker && (
+        <BrandPicker
+          onSelect={name => { setBrand(name.toUpperCase()); setShowBrandPicker(false) }}
+          onClose={() => setShowBrandPicker(false)}
+        />
+      )}
     </div>
   )
 }

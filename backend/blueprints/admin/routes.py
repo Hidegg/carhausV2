@@ -93,15 +93,14 @@ def _svc_breakdown(locatie_id, start, end):
 
 
 def _month_weeks(year, month):
-    """Mon-Sun week buckets clipped to the month. Returns (start, end_exclusive) pairs."""
-    first = date(year, month, 1)
-    after = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
-    weeks, cur = [], first
-    while cur < after:
-        days_to_sun = (6 - cur.weekday()) % 7
-        week_end = min(cur + timedelta(days=days_to_sun), after - timedelta(days=1))
-        weeks.append((cur, week_end + timedelta(days=1)))
-        cur = week_end + timedelta(days=1)
+    """Fixed 7-day buckets: 1-7, 8-14, 15-21, 22-end. Returns (start, end_exclusive) pairs."""
+    last_day = (date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)) - timedelta(days=1)
+    weeks, day = [], 1
+    while day <= last_day.day:
+        start = date(year, month, day)
+        end   = date(year, month, min(day + 6, last_day.day))
+        weeks.append((start, end + timedelta(days=1)))
+        day += 7
     return weeks
 
 
@@ -235,8 +234,10 @@ def istoric():
 def clienti_list():
     from collections import defaultdict
     locatie_id = request.args.get('locatie_id', type=int)
-    sort = request.args.get('sort', 'vizite')
+    sort  = request.args.get('sort', 'vizite')
+    dir_  = request.args.get('dir', 'desc')
     q_str = request.args.get('q', '').strip().upper()
+    brand = request.args.get('brand', '').strip().upper()
 
     # Aggregate per client: visits (distinct timestamps), collected total, last visit
     stats_q = db.session.query(
@@ -269,12 +270,9 @@ def clienti_list():
     if locatie_id:
         clienti_q = clienti_q.filter_by(locatie_id=locatie_id)
     if q_str:
-        clienti_q = clienti_q.filter(
-            db.or_(
-                Clienti.numarAutoturism.contains(q_str),
-                Clienti.marcaAutoturism.contains(q_str)
-            )
-        )
+        clienti_q = clienti_q.filter(Clienti.numarAutoturism.contains(q_str))
+    if brand:
+        clienti_q = clienti_q.filter(Clienti.marcaAutoturism == brand)
     all_clients = clienti_q.all()
 
     result = []
@@ -293,16 +291,40 @@ def clienti_list():
             'topServiciu': top_svc.get(c.id),
         })
 
+    asc = dir_ == 'asc'
     if sort == 'total':
-        result.sort(key=lambda x: x['total'], reverse=True)
-    elif sort == 'brand':
-        result.sort(key=lambda x: x['marca'])
+        result.sort(key=lambda x: x['total'], reverse=not asc)
     elif sort == 'data':
-        result.sort(key=lambda x: x['ultimaSpalare'] or '', reverse=True)
-    else:
-        result.sort(key=lambda x: x['vizite'], reverse=True)
+        result.sort(key=lambda x: x['ultimaSpalare'] or '', reverse=not asc)
+    else:  # vizite (default)
+        result.sort(key=lambda x: x['vizite'], reverse=not asc)
 
     return jsonify({'clienti': result, 'total': len(result)})
+
+
+@admin_bp.route('/clienti/<path:plate>/history')
+@login_required
+@admin_required
+def client_history(plate):
+    plate = plate.upper()
+    client = Clienti.query.filter_by(numarAutoturism=plate).first_or_404()
+    rows = Servicii.query.filter_by(clienti_id=client.id).order_by(Servicii.dataSpalare.desc()).all()
+    return jsonify({
+        'client': {
+            'id': client.id,
+            'numar': client.numarAutoturism,
+            'marca': client.marcaAutoturism,
+            'tip': client.tipAutoturism,
+        },
+        'history': [{
+            'id': s.id,
+            'serviciu': s.serviciiPrestate,
+            'data': s.dataSpalare.isoformat(),
+            'pret': float(s.pretServicii or 0),
+            'tipPlata': s.tipPlata,
+            'nrFirma': s.nrFirma,
+        } for s in rows]
+    })
 
 
 # ── Settings ────────────────────────────────────────────────────────────────

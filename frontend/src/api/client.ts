@@ -56,8 +56,10 @@ export const adminApi = {
     api.delete(`/admin/settings/pret/${id}`).then(r => r.data),
   istoric: (params: { locatie_id?: number; year?: number; month?: number }) =>
     api.get('/admin/istoric', { params }).then(r => r.data),
-  clienti: (params: { locatie_id?: number; sort?: string; q?: string }) =>
+  clienti: (params: { locatie_id?: number; sort?: string; dir?: string; q?: string; brand?: string }) =>
     api.get('/admin/clienti', { params }).then(r => r.data),
+  clientHistory: (plate: string) =>
+    api.get(`/admin/clienti/${plate}/history`).then(r => r.data),
   getManagers: () => api.get('/admin/settings/managers').then(r => r.data),
   addManager: (data: { username: string; password: string; locatie_id: number | null }) =>
     api.post('/admin/settings/manager', data).then(r => r.data),
