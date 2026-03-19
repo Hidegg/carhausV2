@@ -226,6 +226,45 @@ def istoric():
         })
 
 
+# ── CURS Pending ─────────────────────────────────────────────────────────────
+
+@admin_bp.route('/curs-pending')
+@login_required
+@admin_required
+def curs_pending():
+    from collections import defaultdict
+    locatie_id = request.args.get('locatie_id', type=int)
+
+    q = db.session.query(
+        Servicii.clienti_id,
+        func.count(Servicii.id).label('curs_count'),
+        func.sum(Servicii.pretServicii).label('curs_total'),
+        func.max(Servicii.dataSpalare).label('ultima_data'),
+    ).filter(Servicii.tipPlata == 'CURS')
+    if locatie_id:
+        q = q.filter(Servicii.locatie_id == locatie_id)
+    rows = q.group_by(Servicii.clienti_id).order_by(func.sum(Servicii.pretServicii).desc()).all()
+
+    result = []
+    for row in rows:
+        c = Clienti.query.get(row.clienti_id)
+        if not c:
+            continue
+        result.append({
+            'numar': c.numarAutoturism,
+            'marca': c.marcaAutoturism or '—',
+            'tip': c.tipAutoturism or '—',
+            'curs_count': int(row.curs_count or 0),
+            'curs_total': float(row.curs_total or 0),
+            'ultima_data': row.ultima_data.isoformat() if row.ultima_data else None,
+            'telefon': c.telefonClient or None,
+            'email': c.emailClient or None,
+        })
+    # Sort oldest first (most urgent)
+    result.sort(key=lambda x: x['ultima_data'] or '')
+    return jsonify(result)
+
+
 # ── Clienti ──────────────────────────────────────────────────────────────────
 
 @admin_bp.route('/clienti')
@@ -290,6 +329,8 @@ def clienti_list():
             'total': float(st.total or 0),
             'ultimaSpalare': st.ultima_spalare.isoformat() if st.ultima_spalare else None,
             'topServiciu': top_svc.get(c.id),
+            'telefon': c.telefonClient or None,
+            'email': c.emailClient or None,
         })
 
     asc = dir_ == 'asc'
@@ -345,7 +386,8 @@ def settings():
         'preturi': [{
             'id': p.id, 'serviciiPrestate': p.serviciiPrestate,
             'pretAutoturism': p.pretAutoturism, 'pretSUV': p.pretSUV, 'pretVan': p.pretVan,
-            'comisionAutoturism': p.comisionAutoturism, 'comisionSUV': p.comisionSUV, 'comisionVan': p.comisionVan
+            'comisionAutoturism': p.comisionAutoturism, 'comisionSUV': p.comisionSUV, 'comisionVan': p.comisionVan,
+            'activ': p.activ, 'locatie_id': p.locatie_id,
         } for p in preturi]
     })
 
@@ -436,18 +478,42 @@ def preturi_edit():
 def pret_add():
     data = request.get_json()
     name = data.get('serviciiPrestate', '').strip()
+    locatie_id = data.get('locatie_id') or None
     if not name:
         return jsonify({'error': 'Numele serviciului este obligatoriu'}), 400
-    if PretServicii.query.filter_by(serviciiPrestate=name).first():
+    if PretServicii.query.filter_by(serviciiPrestate=name, locatie_id=locatie_id).first():
         return jsonify({'error': 'Serviciu deja existent'}), 409
-    p = PretServicii(serviciiPrestate=name)
+    p = PretServicii(serviciiPrestate=name, locatie_id=locatie_id)
     db.session.add(p)
     db.session.commit()
     return jsonify({
         'id': p.id, 'serviciiPrestate': p.serviciiPrestate,
         'pretAutoturism': p.pretAutoturism, 'pretSUV': p.pretSUV, 'pretVan': p.pretVan,
-        'comisionAutoturism': p.comisionAutoturism, 'comisionSUV': p.comisionSUV, 'comisionVan': p.comisionVan
+        'comisionAutoturism': p.comisionAutoturism, 'comisionSUV': p.comisionSUV, 'comisionVan': p.comisionVan,
+        'activ': p.activ, 'locatie_id': p.locatie_id,
     }), 201
+
+
+@admin_bp.route('/settings/pret/<int:id>', methods=['PUT'])
+@login_required
+@admin_required
+def pret_edit(id):
+    p = PretServicii.query.get_or_404(id)
+    data = request.get_json()
+    if 'activ' in data:
+        p.activ = bool(data['activ'])
+    if 'locatie_id' in data:
+        p.locatie_id = data['locatie_id'] or None
+    for field in ('pretAutoturism', 'pretSUV', 'pretVan', 'comisionAutoturism', 'comisionSUV', 'comisionVan'):
+        if field in data:
+            setattr(p, field, float(data[field]))
+    db.session.commit()
+    return jsonify({
+        'id': p.id, 'serviciiPrestate': p.serviciiPrestate,
+        'pretAutoturism': p.pretAutoturism, 'pretSUV': p.pretSUV, 'pretVan': p.pretVan,
+        'comisionAutoturism': p.comisionAutoturism, 'comisionSUV': p.comisionSUV, 'comisionVan': p.comisionVan,
+        'activ': p.activ, 'locatie_id': p.locatie_id,
+    })
 
 
 @admin_bp.route('/settings/pret/<int:id>', methods=['DELETE'])

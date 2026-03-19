@@ -14,6 +14,7 @@ export interface Spalator {
   id: number
   numeSpalator: string
   locatie_id?: number
+  prezentAzi?: boolean
 }
 
 export interface ManagerUser {
@@ -31,6 +32,8 @@ export interface PretServicii {
   comisionAutoturism: number
   comisionSUV: number
   comisionVan: number
+  activ?: boolean
+  locatie_id?: number | null
 }
 
 export interface Serviciu {
@@ -41,7 +44,20 @@ export interface Serviciu {
   comisionServicii: number
   tipPlata: 'CASH' | 'CARD' | 'CURS' | 'CONTRACT' | 'PROTOCOL'
   nrFirma: string | null
+  notite?: string | null
   spalator: string | null
+  spalatori_id?: number
+}
+
+export interface CursPendingItem {
+  numar: string
+  marca: string
+  tip: string
+  curs_count: number
+  curs_total: number
+  ultima_data: string | null
+  telefon: string | null
+  email: string | null
 }
 
 export interface ClientCard {
@@ -126,6 +142,8 @@ export interface AdminClient {
   total: number
   ultimaSpalare: string | null
   topServiciu: string | null
+  telefon: string | null
+  email: string | null
 }
 
 export interface AdminClientiResponse {

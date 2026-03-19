@@ -38,7 +38,7 @@ def create_app():
 
     # Weekly backup scheduler (Sunday 03:00) — SQLite only
     db_url = app.config.get('SQLALCHEMY_DATABASE_URI', '')
-    if db_url.startswith('sqlite'):
+    if db_url.startswith('sqlite') and not app.config.get('TESTING'):
         from apscheduler.schedulers.background import BackgroundScheduler
         from backup import backup_database
         scheduler = BackgroundScheduler()

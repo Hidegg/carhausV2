@@ -35,7 +35,10 @@ export function useAuthProvider(): AuthContext {
 
   const logoutMutation = useMutation({
     mutationFn: authApi.logout,
-    onSuccess: () => queryClient.setQueryData(['auth', 'me'], null),
+    onSuccess: () => {
+      queryClient.clear()
+      window.location.href = '/login'
+    },
   })
 
   return {

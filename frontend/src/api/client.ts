@@ -18,6 +18,10 @@ export const authApi = {
 export const managerApi = {
   formData: () => api.get('/manager/form-data').then(r => r.data),
   addServicii: (data: object) => api.post('/manager/servicii', data).then(r => r.data),
+  deleteServiciu: (id: number) => api.delete(`/manager/servicii/${id}`).then(r => r.data),
+  editServiciu: (id: number, data: object) => api.put(`/manager/servicii/${id}`, data).then(r => r.data),
+  nrFirmaSuggestions: () => api.get('/manager/nrfirma-suggestions').then(r => r.data),
+  platesSearch: (q: string) => api.get(`/manager/plates-search?q=${encodeURIComponent(q)}`).then(r => r.data),
   dashboard: () => api.get('/manager/dashboard').then(r => r.data),
   updatePayment: (id: number, tipPlata: string, nrFirma?: string) =>
     api.post(`/manager/update-payment/${id}`, { tipPlata, ...(nrFirma ? { nrFirma } : {}) }).then(r => r.data),
@@ -25,6 +29,7 @@ export const managerApi = {
   analytics: () => api.get('/manager/analytics').then(r => r.data),
   getEchipa: () => api.get('/manager/echipa').then(r => r.data),
   addSpalator: (numeSpalator: string) => api.post('/manager/echipa', { numeSpalator }).then(r => r.data),
+  toggleSpalator: (id: number, prezentAzi: boolean) => api.put(`/manager/echipa/${id}`, { prezentAzi }).then(r => r.data),
   deleteSpalator: (id: number) => api.delete(`/manager/echipa/${id}`).then(r => r.data),
 }
 
@@ -50,10 +55,14 @@ export const adminApi = {
     api.delete(`/admin/settings/spalator/${id}`).then(r => r.data),
   editPreturi: (preturi: object[]) =>
     api.put('/admin/settings/preturi', preturi).then(r => r.data),
-  addPret: (serviciiPrestate: string) =>
-    api.post('/admin/settings/pret', { serviciiPrestate }).then(r => r.data),
+  editPret: (id: number, data: object) =>
+    api.put(`/admin/settings/pret/${id}`, data).then(r => r.data),
+  addPret: (serviciiPrestate: string, locatie_id?: number | null) =>
+    api.post('/admin/settings/pret', { serviciiPrestate, locatie_id }).then(r => r.data),
   deletePret: (id: number) =>
     api.delete(`/admin/settings/pret/${id}`).then(r => r.data),
+  cursPending: (locatie_id?: number) =>
+    api.get('/admin/curs-pending', { params: locatie_id ? { locatie_id } : {} }).then(r => r.data),
   istoric: (params: { locatie_id?: number; year?: number; month?: number }) =>
     api.get('/admin/istoric', { params }).then(r => r.data),
   clienti: (params: { locatie_id?: number; sort?: string; dir?: string; q?: string; brand?: string }) =>

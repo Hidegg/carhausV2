@@ -63,6 +63,7 @@ class Spalatori(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     numeSpalator = db.Column(db.String(50), nullable=False)
     locatie_id = db.Column(db.Integer, db.ForeignKey('locatie.id'), nullable=False)
+    prezentAzi = db.Column(db.Boolean, nullable=False, default=True, server_default='1')
 
     def __repr__(self):
         return f'<Spalatori {self.numeSpalator}>'
@@ -79,6 +80,7 @@ class Servicii(db.Model):
     comisionServicii = db.Column(db.Float, nullable=True)
     tipPlata = db.Column(db.String(50), nullable=False)
     nrFirma = db.Column(db.String(100), nullable=True)
+    notite = db.Column(db.String(500), nullable=True)
 
     clienti_id = db.Column(db.Integer, db.ForeignKey('clienti.id'), nullable=False, index=True)
     spalatori_id = db.Column(db.Integer, db.ForeignKey('spalatori.id'), nullable=False)
@@ -101,6 +103,8 @@ class PretServicii(db.Model):
     comisionAutoturism = db.Column(db.Float, nullable=False, default=0.0)
     comisionSUV = db.Column(db.Float, nullable=False, default=0.0)
     comisionVan = db.Column(db.Float, nullable=False, default=0.0)
+    activ = db.Column(db.Boolean, nullable=False, default=True, server_default='1')
+    locatie_id = db.Column(db.Integer, db.ForeignKey('locatie.id'), nullable=True)
 
     def __repr__(self):
         return f'<PretServicii {self.serviciiPrestate}>'

@@ -1,14 +1,13 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import {
-  LayoutDashboard, Car, Users, TrendingUp,
+  LayoutDashboard, Car, Users,
   Settings, BarChart2,
   Server, Shield, Globe, History, UserSquare2, LogOut
 } from 'lucide-react'
 
 const adminLinks = [
-  { to: '/admin/overview', label: 'Overview', icon: LayoutDashboard },
-  { to: '/admin/rapoarte', label: 'Rapoarte', icon: TrendingUp },
+  { to: '/admin/overview', label: 'Raport Zilnic', icon: LayoutDashboard },
   { to: '/admin/istoric', label: 'Istoric', icon: History },
   { to: '/admin/clienti', label: 'Clienti', icon: UserSquare2 },
   { to: '/admin/spalatori', label: 'Spalatori', icon: Users },

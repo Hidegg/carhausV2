@@ -9,7 +9,6 @@ import ManagerDashboard from './pages/manager/Dashboard'
 import ManagerEchipa from './pages/manager/Echipa'
 import ManagerAnalytics from './pages/manager/Analytics'
 import AdminOverview from './pages/admin/Overview'
-import AdminRapoarte from './pages/admin/Rapoarte'
 import AdminIstoric from './pages/admin/Istoric'
 import AdminClienti from './pages/admin/Clienti'
 import AdminClientDetail from './pages/admin/ClientDetail'
@@ -62,7 +61,7 @@ function AppRoutes() {
 
         {/* Admin */}
         <Route path="/admin/overview" element={<ProtectedRoute adminOnly><AdminOverview /></ProtectedRoute>} />
-        <Route path="/admin/rapoarte" element={<ProtectedRoute adminOnly><AdminRapoarte /></ProtectedRoute>} />
+        <Route path="/admin/rapoarte" element={<Navigate to="/admin/istoric" replace />} />
         <Route path="/admin/istoric" element={<ProtectedRoute adminOnly><AdminIstoric /></ProtectedRoute>} />
         <Route path="/admin/clienti" element={<ProtectedRoute adminOnly><AdminClienti /></ProtectedRoute>} />
         <Route path="/admin/clienti/:plate" element={<ProtectedRoute adminOnly><AdminClientDetail /></ProtectedRoute>} />

@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, session
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo
+from collections import Counter
 
 BUCHAREST = ZoneInfo('Europe/Bucharest')
 from functools import wraps
@@ -37,9 +38,24 @@ def manager_required(f):
 @manager_required
 def form_data():
     locatie_id = session.get('locatie_id')
-    preturi = PretServicii.query.all()
-    spalatori = (Spalatori.query.filter_by(locatie_id=locatie_id).all()
-                 if locatie_id else Spalatori.query.all())
+
+    # Per-location pricing: prefer locatie-specific rows, fall back to global (NULL locatie_id)
+    if locatie_id:
+        loc_preturi = PretServicii.query.filter_by(locatie_id=locatie_id, activ=True).all()
+        loc_names = {p.serviciiPrestate for p in loc_preturi}
+        global_preturi = PretServicii.query.filter_by(locatie_id=None, activ=True).all()
+        preturi = loc_preturi + [p for p in global_preturi if p.serviciiPrestate not in loc_names]
+    else:
+        preturi = PretServicii.query.filter_by(activ=True).all()
+
+    # Workers: only present ones; fall back to all if none are present
+    if locatie_id:
+        spalatori = Spalatori.query.filter_by(locatie_id=locatie_id, prezentAzi=True).all()
+        if not spalatori:
+            spalatori = Spalatori.query.filter_by(locatie_id=locatie_id).all()
+    else:
+        spalatori = Spalatori.query.all()
+
     return jsonify({
         'preturi': [{
             'id': p.id,
@@ -91,9 +107,12 @@ def add_serviciu():
     if not spalator:
         return jsonify({'error': 'Spalator not found'}), 400
 
-    ultimul = Servicii.query.filter(
+    _q = Servicii.query.filter(
         db.func.date(Servicii.dataSpalare) == dataSpalare.date()
-    ).order_by(Servicii.numarCurent.desc()).with_for_update().first()
+    ).order_by(Servicii.numarCurent.desc())
+    if db.engine.dialect.name != 'sqlite':
+        _q = _q.with_for_update()
+    ultimul = _q.first()
     numarCurent = (ultimul.numarCurent + 1) if ultimul else 1
 
     servicii_adaugate = []
@@ -102,7 +121,12 @@ def add_serviciu():
         return jsonify({'error': 'Trebuie selectat cel putin un serviciu'}), 400
 
     for serviciu_name in servicii_list:
-        pret_obj = PretServicii.query.filter_by(serviciiPrestate=serviciu_name).first()
+        # Prefer location-specific price, fall back to global
+        pret_obj = None
+        if locatie_id:
+            pret_obj = PretServicii.query.filter_by(serviciiPrestate=serviciu_name, locatie_id=locatie_id).first()
+        if not pret_obj:
+            pret_obj = PretServicii.query.filter_by(serviciiPrestate=serviciu_name, locatie_id=None).first()
         if not pret_obj:
             return jsonify({'error': f'Serviciu "{serviciu_name}" nu a fost gasit in lista de preturi'}), 400
         tip = client.tipAutoturism
@@ -121,6 +145,7 @@ def add_serviciu():
             comisionServicii=comision,
             tipPlata=data.get('tipPlata', 'CASH'),
             nrFirma=data.get('nrFirma') or None,
+            notite=data.get('notite') or None,
             clienti_id=client.id,
             spalatori_id=spalator.id,
             locatie_id=locatie_id
@@ -171,7 +196,9 @@ def dashboard():
             'comisionServicii': s.comisionServicii,
             'tipPlata': s.tipPlata,
             'nrFirma': s.nrFirma,
+            'notite': s.notite,
             'spalator': s.spalatori.numeSpalator if s.spalatori else None,
+            'spalatori_id': s.spalatori_id,
         })
 
     return jsonify(list(grouped.values()))
@@ -196,7 +223,7 @@ def update_payment(service_id):
 def echipa_get():
     locatie_id = session.get('locatie_id')
     spalatori = Spalatori.query.filter_by(locatie_id=locatie_id).all() if locatie_id else []
-    return jsonify([{'id': s.id, 'numeSpalator': s.numeSpalator} for s in spalatori])
+    return jsonify([{'id': s.id, 'numeSpalator': s.numeSpalator, 'prezentAzi': s.prezentAzi} for s in spalatori])
 
 
 @manager_bp.route('/echipa', methods=['POST'])
@@ -291,16 +318,135 @@ def analytics():
     })
 
 
+@manager_bp.route('/servicii/<int:service_id>', methods=['DELETE'])
+@login_required
+@manager_required
+def delete_serviciu(service_id):
+    locatie_id = session.get('locatie_id')
+    s = Servicii.query.get_or_404(service_id)
+    if locatie_id and s.locatie_id != locatie_id:
+        return jsonify({'error': 'Forbidden'}), 403
+    db.session.delete(s)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+@manager_bp.route('/servicii/<int:service_id>', methods=['PUT'])
+@login_required
+@manager_required
+def edit_serviciu(service_id):
+    locatie_id = session.get('locatie_id')
+    s = Servicii.query.get_or_404(service_id)
+    if locatie_id and s.locatie_id != locatie_id:
+        return jsonify({'error': 'Forbidden'}), 403
+    data = request.get_json()
+
+    if 'spalator' in data:
+        sp = Spalatori.query.filter_by(numeSpalator=data['spalator']).first()
+        if not sp:
+            return jsonify({'error': 'Spalator not found'}), 400
+        s.spalatori_id = sp.id
+
+    if 'serviciiPrestate' in data and data['serviciiPrestate'] != s.serviciiPrestate:
+        new_name = data['serviciiPrestate']
+        pret_obj = None
+        if locatie_id:
+            pret_obj = PretServicii.query.filter_by(serviciiPrestate=new_name, locatie_id=locatie_id).first()
+        if not pret_obj:
+            pret_obj = PretServicii.query.filter_by(serviciiPrestate=new_name, locatie_id=None).first()
+        if not pret_obj:
+            return jsonify({'error': f'Serviciu "{new_name}" nu a fost gasit'}), 400
+        client = s.clienti
+        tip = client.tipAutoturism
+        if tip == 'SUV':
+            pret, comision = pret_obj.pretSUV, pret_obj.comisionSUV
+        elif tip == 'VAN':
+            pret, comision = pret_obj.pretVan, pret_obj.comisionVan
+        else:
+            pret, comision = pret_obj.pretAutoturism, pret_obj.comisionAutoturism
+        s.serviciiPrestate = new_name
+        s.pretServicii = pret
+        s.comisionServicii = comision
+
+    if 'tipPlata' in data:
+        s.tipPlata = data['tipPlata']
+    if 'nrFirma' in data:
+        s.nrFirma = data.get('nrFirma') or None
+    if 'notite' in data:
+        s.notite = data.get('notite') or None
+
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+@manager_bp.route('/plates-search')
+@login_required
+@manager_required
+def plates_search():
+    q = request.args.get('q', '').upper().strip()
+    if len(q) < 2:
+        return jsonify([])
+    locatie_id = session.get('locatie_id')
+    query = Clienti.query.filter(Clienti.numarAutoturism.like(f'%{q}%'))
+    if locatie_id:
+        query = query.filter(Clienti.locatie_id == locatie_id)
+    results = query.order_by(Clienti.numarAutoturism).limit(10).all()
+    return jsonify([{'numar': c.numarAutoturism, 'marca': c.marcaAutoturism or '', 'tip': c.tipAutoturism or ''} for c in results])
+
+
+@manager_bp.route('/nrfirma-suggestions')
+@login_required
+@manager_required
+def nrfirma_suggestions():
+    locatie_id = session.get('locatie_id')
+    q = db.session.query(db.distinct(Servicii.nrFirma)).filter(Servicii.nrFirma.isnot(None))
+    if locatie_id:
+        q = q.filter(Servicii.locatie_id == locatie_id)
+    results = [r[0] for r in q.order_by(Servicii.nrFirma).limit(50).all()]
+    return jsonify(results)
+
+
+@manager_bp.route('/echipa/<int:id>', methods=['PUT'])
+@login_required
+@manager_required
+def echipa_toggle(id):
+    locatie_id = session.get('locatie_id')
+    sp = Spalatori.query.get_or_404(id)
+    if locatie_id and sp.locatie_id != locatie_id:
+        return jsonify({'error': 'Forbidden'}), 403
+    data = request.get_json() or {}
+    if 'prezentAzi' in data:
+        sp.prezentAzi = bool(data['prezentAzi'])
+    db.session.commit()
+    return jsonify({'id': sp.id, 'numeSpalator': sp.numeSpalator, 'prezentAzi': sp.prezentAzi})
+
+
 @manager_bp.route('/client/<numar>')
 @login_required
 @manager_required
 def get_client(numar):
     client = Clienti.query.filter_by(numarAutoturism=numar.upper()).first()
     if client:
+        servicii_list = Servicii.query.filter_by(clienti_id=client.id).all()
+        vizite = len(servicii_list)
+        ultima_vizita = None
+        serviciu_frecvent = None
+        tip_plata_frecvent = None
+        if servicii_list:
+            ultima_vizita = max(s.dataSpalare for s in servicii_list).isoformat()
+            serviciu_frecvent = Counter(s.serviciiPrestate for s in servicii_list).most_common(1)[0][0]
+            tip_plata_frecvent = Counter(s.tipPlata for s in servicii_list).most_common(1)[0][0]
         return jsonify({
             'tipAutoturism': client.tipAutoturism or '',
             'marcaAutoturism': client.marcaAutoturism or '',
             'emailClient': client.emailClient or '',
-            'telefonClient': client.telefonClient or ''
+            'telefonClient': client.telefonClient or '',
+            'vizite': vizite,
+            'ultimaVizita': ultima_vizita,
+            'serviciuFrecvent': serviciu_frecvent,
+            'tipPlataFrecvent': tip_plata_frecvent,
         })
-    return jsonify({'tipAutoturism': '', 'marcaAutoturism': '', 'emailClient': '', 'telefonClient': ''})
+    return jsonify({
+        'tipAutoturism': '', 'marcaAutoturism': '', 'emailClient': '', 'telefonClient': '',
+        'vizite': 0, 'ultimaVizita': None, 'serviciuFrecvent': None, 'tipPlataFrecvent': None,
+    })

@@ -1,0 +1,86 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  DATABASE_URL: sqlite:///e2e_test.db
+  SECRET_KEY: ci-test-secret
+
+jobs:
+  backend-tests:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run pytest
+        run: pytest tests/ -v
+
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: sqlite:///e2e_test.db
+      SECRET_KEY: ci-test-secret
+      CI: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt gunicorn
+
+      - name: Seed E2E test data
+        run: python seed_e2e.py
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        working-directory: frontend
+        run: npx playwright test
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          SECRET_KEY: ${{ env.SECRET_KEY }}
+          BASE_URL: http://localhost:5001
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7

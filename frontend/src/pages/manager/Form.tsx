@@ -5,9 +5,27 @@ import { managerApi } from '../../api/client'
 import { PretServicii, Spalator } from '../../types'
 import BrandPicker from '../../components/BrandPicker'
 import brandsData from '../../data/carBrands.json'
-import { Plus } from 'lucide-react'
+import { Plus, ChevronDown, ChevronUp } from 'lucide-react'
 
-const TIP_OPTIONS = ['AUTOTURISM', 'SUV', 'VAN']
+interface ClientContext {
+  vizite: number
+  ultimaVizita: string | null
+  serviciuFrecvent: string | null
+  tipPlataFrecvent: string | null
+}
+
+function relativaRo(isoString: string): string {
+  const diffDays = Math.floor((Date.now() - new Date(isoString).getTime()) / 86400000)
+  if (diffDays === 0) return 'azi'
+  if (diffDays === 1) return 'ieri'
+  if (diffDays < 7) return `${diffDays} zile în urmă`
+  if (diffDays < 14) return 'săptămâna trecută'
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} săpt. în urmă`
+  if (diffDays < 60) return 'luna trecută'
+  return `${Math.floor(diffDays / 30)} luni în urmă`
+}
+
+const MILESTONES = [10, 25, 50, 100, 200, 500]
 
 const brandLogoByName: Record<string, string> = {}
 for (const b of brandsData as Array<{ name: string; slug: string; image?: { thumb?: string } }>) {
@@ -24,16 +42,6 @@ function getBucharestNow() {
   return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`
 }
 
-function getBucharestClock() {
-  const now = new Date()
-  const weekday = new Intl.DateTimeFormat('ro-RO', { timeZone: 'Europe/Bucharest', weekday: 'long' }).format(now)
-  const day = new Intl.DateTimeFormat('ro-RO', { timeZone: 'Europe/Bucharest', day: 'numeric' }).format(now)
-  const month = new Intl.DateTimeFormat('ro-RO', { timeZone: 'Europe/Bucharest', month: 'long' }).format(now)
-  const year = new Intl.DateTimeFormat('ro-RO', { timeZone: 'Europe/Bucharest', year: 'numeric' }).format(now)
-  const time = new Intl.DateTimeFormat('ro-RO', { timeZone: 'Europe/Bucharest', hour: '2-digit', minute: '2-digit', hour12: false }).format(now)
-  return `${weekday.charAt(0).toUpperCase() + weekday.slice(1)} - ${day} ${month} ${year} - ${time}`
-}
-
 export default function ManagerForm() {
   const [numar, setNumar] = useState('')
   const [tip, setTip] = useState('AUTOTURISM')
@@ -41,52 +49,84 @@ export default function ManagerForm() {
   const [email, setEmail] = useState('')
   const [telefon, setTelefon] = useState('')
   const [clientExistent, setClientExistent] = useState(false)
-  const [date, setDate] = useState(getBucharestNow)
-  const [clock, setClock] = useState(getBucharestClock)
+  const [clientContext, setClientContext] = useState<ClientContext | null>(null)
+  const [date] = useState(getBucharestNow)
   const [spalator, setSpalator] = useState('')
   const [tipPlata, setTipPlata] = useState('CASH')
   const [nrFirma, setNrFirma] = useState('')
+  const [notite, setNotite] = useState('')
   const [selectedServices, setSelectedServices] = useState<string[]>([])
   const [gdpr, setGdpr] = useState(false)
   const [newsletter, setNewsletter] = useState(false)
   const [termeni, setTermeni] = useState(false)
   const [brandPickerOpen, setBrandPickerOpen] = useState(false)
+  const [contactOpen, setContactOpen] = useState(false)
   const [success, setSuccess] = useState(false)
   const [formError, setFormError] = useState('')
-  const clockRef = useRef<ReturnType<typeof setInterval>>()
-
-  // Live clock — updates every second, syncs date state every minute
-  useEffect(() => {
-    clockRef.current = setInterval(() => {
-      setClock(getBucharestClock())
-      setDate(getBucharestNow())
-    }, 1000)
-    return () => clearInterval(clockRef.current)
-  }, [])
+  const [plateDropdownOpen, setPlateDropdownOpen] = useState(false)
+  const plateInputRef = useRef<HTMLDivElement>(null)
 
   const { data: formData } = useQuery({ queryKey: ['form-data'], queryFn: managerApi.formData })
+  const { data: plateSuggestions = [] } = useQuery<{ numar: string; marca: string; tip: string }[]>({
+    queryKey: ['plates-search', numar],
+    queryFn: () => managerApi.platesSearch(numar),
+    enabled: numar.length >= 2 && !clientExistent,
+    staleTime: 30000,
+  })
+
+  const { data: nrFirmaSuggestions = [] } = useQuery<string[]>({
+    queryKey: ['nrfirma-suggestions'],
+    queryFn: managerApi.nrFirmaSuggestions,
+    enabled: tipPlata === 'CONTRACT' || tipPlata === 'PROTOCOL',
+  })
 
   const mutation = useMutation({
     mutationFn: managerApi.addServicii,
     onSuccess: () => {
       setSuccess(true)
       setNumar(''); setTip('AUTOTURISM'); setMarca(''); setEmail(''); setTelefon('')
-      setSelectedServices([]); setClientExistent(false)
+      setSelectedServices([]); setClientExistent(false); setClientContext(null)
       setGdpr(false); setNewsletter(false); setTermeni(false)
-      setTipPlata('CASH'); setNrFirma('')
+      setTipPlata('CASH'); setNrFirma(''); setNotite('')
+      setContactOpen(false); setPlateDropdownOpen(false)
       setTimeout(() => setSuccess(false), 3000)
     }
   })
 
   useEffect(() => {
-    if (numar.length < 4) { setClientExistent(false); return }
+    if (plateSuggestions.length > 0 && !clientExistent) setPlateDropdownOpen(true)
+    else setPlateDropdownOpen(false)
+  }, [plateSuggestions, clientExistent])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (plateInputRef.current && !plateInputRef.current.contains(e.target as Node))
+        setPlateDropdownOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  useEffect(() => {
+    if (numar.length < 4) { setClientExistent(false); setClientContext(null); return }
     const t = setTimeout(async () => {
       const data = await managerApi.getClient(numar.toUpperCase())
       if (data.tipAutoturism) {
         setTip(data.tipAutoturism); setMarca(data.marcaAutoturism)
         setEmail(data.emailClient); setTelefon(data.telefonClient)
         setClientExistent(true)
-      } else setClientExistent(false)
+        setClientContext({
+          vizite: data.vizite,
+          ultimaVizita: data.ultimaVizita,
+          serviciuFrecvent: data.serviciuFrecvent,
+          tipPlataFrecvent: data.tipPlataFrecvent,
+        })
+        if (data.serviciuFrecvent) setSelectedServices([data.serviciuFrecvent])
+        if (data.tipPlataFrecvent) setTipPlata(data.tipPlataFrecvent)
+      } else {
+        setClientExistent(false)
+        setClientContext(null)
+      }
     }, 400)
     return () => clearTimeout(t)
   }, [numar])
@@ -101,6 +141,10 @@ export default function ManagerForm() {
     const p = formData?.preturi.find((pr: PretServicii) => pr.serviciiPrestate === sv)
     return sum + (p ? getPret(p) : 0)
   }, 0)
+
+  // Check if vizite+1 is a milestone (this will be the next visit)
+  const nextVisit = (clientContext?.vizite ?? 0) + 1
+  const isMilestone = clientContext && MILESTONES.includes(nextVisit)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -119,6 +163,7 @@ export default function ManagerForm() {
       spalator,
       tipPlata,
       nrFirma: nrFirma || null,
+      notite: notite || null,
       serviciiPrestate: selectedServices
     })
   }
@@ -138,20 +183,48 @@ export default function ManagerForm() {
       )}
 
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="card p-6">
-        {/* Live clock */}
-        <div className="text-center mb-6">
-          <span className="text-sm font-semibold text-gray-600 dark:text-gray-300 tabular-nums">{clock}</span>
-        </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <input type="text" value={marca} required onChange={() => {}} className="sr-only" aria-hidden />
           {/* Numar */}
-          <div>
+          <div ref={plateInputRef}>
             <label className="form-label">Numar Autoturism</label>
-            <input type="text" value={numar} onChange={e => setNumar(e.target.value.toUpperCase())}
-              className="form-input uppercase" placeholder="ex: B123ABC" required />
-            {clientExistent && (
-              <p className="text-xs text-green-600 dark:text-green-400 mt-1">Client existent — date completate automat.</p>
+            <div className="relative">
+              <input type="text" value={numar}
+                onChange={e => { setNumar(e.target.value.toUpperCase()); setClientExistent(false); setClientContext(null) }}
+                onFocus={() => { if (plateSuggestions.length > 0 && !clientExistent) setPlateDropdownOpen(true) }}
+                className="form-input uppercase" placeholder="ex: B123ABC" required autoComplete="off" />
+              {plateDropdownOpen && plateSuggestions.length > 0 && (
+                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden">
+                  {plateSuggestions.map(s => (
+                    <button key={s.numar} type="button"
+                      onMouseDown={e => { e.preventDefault(); setNumar(s.numar); setPlateDropdownOpen(false) }}
+                      className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 text-left transition-colors">
+                      <span className="font-mono font-semibold text-sm tracking-wider">{s.numar}</span>
+                      <span className="text-xs text-gray-400">{s.marca} {s.tip}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {clientExistent && clientContext && (
+              <div className="mt-1.5 flex items-center gap-3 flex-wrap px-1 text-xs text-gray-400 dark:text-gray-500">
+                <span className="text-gray-500 dark:text-gray-400 font-medium">
+                  {clientContext.vizite} {clientContext.vizite === 1 ? 'vizită' : 'vizite'}
+                </span>
+                {clientContext.ultimaVizita && (
+                  <span>{relativaRo(clientContext.ultimaVizita)}</span>
+                )}
+                {clientContext.serviciuFrecvent && (
+                  <span>{clientContext.serviciuFrecvent}</span>
+                )}
+                {clientContext.tipPlataFrecvent && (
+                  <span>{clientContext.tipPlataFrecvent}</span>
+                )}
+                {isMilestone && (
+                  <span className="text-brand font-semibold">Vizita #{nextVisit} 🎉</span>
+                )}
+              </div>
             )}
           </div>
 
@@ -197,40 +270,57 @@ export default function ManagerForm() {
             </div>
           </div>
 
-          {/* Email + Phone */}
-          {!clientExistent && (
-            <>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="form-label">Email <span className="text-gray-400 text-xs">(optional)</span></label>
-                  <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                    className="form-input" placeholder="client@email.com" />
+          {/* Contact / GDPR accordion */}
+          {!clientExistent ? (
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+              <button type="button"
+                onClick={() => setContactOpen(o => !o)}
+                className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-brand transition-colors bg-gray-50 dark:bg-gray-800">
+                <span>Adauga informatii contact</span>
+                {contactOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+              {contactOpen && (
+                <div className="px-4 pb-4 pt-3 space-y-3 bg-white dark:bg-[#1a1a1a]">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="form-label">Email <span className="text-gray-400 text-xs">(optional)</span></label>
+                      <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                        className="form-input" placeholder="client@email.com" />
+                    </div>
+                    <div>
+                      <label className="form-label">Telefon <span className="text-gray-400 text-xs">(optional)</span></label>
+                      <input type="text" value={telefon} onChange={e => setTelefon(e.target.value)}
+                        className="form-input" placeholder="07xx xxx xxx" />
+                    </div>
+                  </div>
+                  <div className="space-y-2 pt-1">
+                    <label className="flex items-start gap-2 cursor-pointer text-sm">
+                      <input type="checkbox" checked={termeni} onChange={e => setTermeni(e.target.checked)}
+                        className="accent-brand mt-0.5" required />
+                      <span>Am acceptat <span className="text-brand underline cursor-pointer">Termenii si Conditiile</span> <span className="text-red-500">*</span></span>
+                    </label>
+                    <label className="flex items-start gap-2 cursor-pointer text-sm">
+                      <input type="checkbox" checked={gdpr} onChange={e => setGdpr(e.target.checked)}
+                        className="accent-brand mt-0.5" required />
+                      <span>Acord prelucrare date personale (GDPR) <span className="text-red-500">*</span></span>
+                    </label>
+                    <label className="flex items-start gap-2 cursor-pointer text-sm text-gray-500">
+                      <input type="checkbox" checked={newsletter} onChange={e => setNewsletter(e.target.checked)}
+                        className="accent-brand mt-0.5" />
+                      <span>Doresc sa primesc oferte si noutati (newsletter)</span>
+                    </label>
+                  </div>
                 </div>
-                <div>
-                  <label className="form-label">Telefon <span className="text-gray-400 text-xs">(optional)</span></label>
-                  <input type="text" value={telefon} onChange={e => setTelefon(e.target.value)}
-                    className="form-input" placeholder="07xx xxx xxx" />
-                </div>
+              )}
+            </div>
+          ) : (
+            /* For existing clients: show summary if contact info exists */
+            (email || telefon) && (
+              <div className="text-xs text-gray-500 dark:text-gray-400 px-1">
+                {email && <span className="mr-3">✉ {email}</span>}
+                {telefon && <span>☏ {telefon}</span>}
               </div>
-              {/* GDPR / Termeni / Newsletter */}
-              <div className="space-y-2 pt-1">
-                <label className="flex items-start gap-2 cursor-pointer text-sm">
-                  <input type="checkbox" checked={termeni} onChange={e => setTermeni(e.target.checked)}
-                    className="accent-brand mt-0.5" required />
-                  <span>Am acceptat <span className="text-brand underline cursor-pointer">Termenii si Conditiile</span> <span className="text-red-500">*</span></span>
-                </label>
-                <label className="flex items-start gap-2 cursor-pointer text-sm">
-                  <input type="checkbox" checked={gdpr} onChange={e => setGdpr(e.target.checked)}
-                    className="accent-brand mt-0.5" required />
-                  <span>Acord prelucrare date personale (GDPR) <span className="text-red-500">*</span></span>
-                </label>
-                <label className="flex items-start gap-2 cursor-pointer text-sm text-gray-500">
-                  <input type="checkbox" checked={newsletter} onChange={e => setNewsletter(e.target.checked)}
-                    className="accent-brand mt-0.5" />
-                  <span>Doresc sa primesc oferte si noutati (newsletter)</span>
-                </label>
-              </div>
-            </>
+            )
           )}
 
           {/* Tip Plata */}
@@ -264,8 +354,14 @@ export default function ManagerForm() {
                   onChange={e => setNrFirma(e.target.value)}
                   placeholder="Nr. Firma"
                   className="form-input"
+                  list="nrfirma-list"
                   required
                 />
+                <datalist id="nrfirma-list">
+                  {nrFirmaSuggestions.map((s: string) => (
+                    <option key={s} value={s} />
+                  ))}
+                </datalist>
               </div>
             )}
           </div>
@@ -308,6 +404,18 @@ export default function ManagerForm() {
                 </label>
               ))}
             </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="form-label">Notite <span className="text-gray-400 text-xs">(optional)</span></label>
+            <textarea
+              value={notite}
+              onChange={e => setNotite(e.target.value)}
+              rows={2}
+              placeholder="Observatii, detalii suplimentare..."
+              className="form-input resize-none"
+            />
           </div>
 
           {/* Total */}

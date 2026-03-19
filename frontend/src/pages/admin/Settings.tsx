@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { adminApi } from '../../api/client'
 import { Locatie, PretServicii, ManagerUser } from '../../types'
-import { Trash2, Pencil, X, Check } from 'lucide-react'
+import { Trash2, Pencil, X, Check, Eye, EyeOff } from 'lucide-react'
 
 type Tab = 'locatii' | 'spalatori' | 'preturi' | 'manageri'
 
@@ -16,6 +16,7 @@ interface EditManagerState {
 
 export default function AdminSettings() {
   const [tab, setTab] = useState<Tab>('locatii')
+  const [pretLocatieTab, setPretLocatieTab] = useState<'global' | number>('global')
   const qc = useQueryClient()
   const inv = () => qc.invalidateQueries({ queryKey: ['admin', 'settings'] })
   const invMgr = () => qc.invalidateQueries({ queryKey: ['admin', 'managers'] })
@@ -36,7 +37,8 @@ export default function AdminSettings() {
   const addSpalator = useMutation({ mutationFn: ({ name, lid }: { name: string; lid: number }) => adminApi.addSpalator(name, lid), onSuccess: inv })
   const deleteSpalator = useMutation({ mutationFn: adminApi.deleteSpalator, onSuccess: inv })
   const editPreturi = useMutation({ mutationFn: adminApi.editPreturi, onSuccess: inv })
-  const addPret = useMutation({ mutationFn: adminApi.addPret, onSuccess: inv })
+  const editPret = useMutation({ mutationFn: ({ id, data }: { id: number; data: object }) => adminApi.editPret(id, data), onSuccess: inv })
+  const addPret = useMutation({ mutationFn: ({ name, locatie_id }: { name: string; locatie_id?: number | null }) => adminApi.addPret(name, locatie_id), onSuccess: inv })
   const deletePret = useMutation({ mutationFn: adminApi.deletePret, onSuccess: inv })
   const addManager = useMutation({ mutationFn: adminApi.addManager, onSuccess: invMgr })
   const editManager = useMutation({ mutationFn: ({ id, data }: { id: number; data: Parameters<typeof adminApi.editManager>[1] }) => adminApi.editManager(id, data), onSuccess: invMgr })
@@ -97,6 +99,17 @@ export default function AdminSettings() {
     { key: 'preturi', label: 'Servicii & Preturi' },
     { key: 'manageri', label: 'Manageri' },
   ]
+
+  // Get preturi for current location tab
+  const activeLocatieId = pretLocatieTab === 'global' ? null : pretLocatieTab
+  const filteredPreturi: PretServicii[] = (data?.preturi ?? []).filter((p: PretServicii) => {
+    if (pretLocatieTab === 'global') return p.locatie_id == null
+    return p.locatie_id === pretLocatieTab
+  })
+
+  // Service names that have global entries (for per-location tab: show all global names as base)
+  const globalPreturi: PretServicii[] = (data?.preturi ?? []).filter((p: PretServicii) => p.locatie_id == null)
+  const locPreturiNames = new Set(filteredPreturi.map((p: PretServicii) => p.serviciiPrestate))
 
   return (
     <div>
@@ -168,11 +181,39 @@ export default function AdminSettings() {
 
       {tab === 'preturi' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          {/* Location tabs for pricing */}
+          <div className="flex gap-0 border-b border-gray-200 dark:border-gray-700 mb-4 overflow-x-auto">
+            <button
+              onClick={() => setPretLocatieTab('global')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
+                pretLocatieTab === 'global' ? 'border-brand text-brand' : 'border-transparent text-gray-500 hover:text-brand'
+              }`}>
+              Global
+            </button>
+            {data?.locatii.map((loc: Locatie) => (
+              <button key={loc.id}
+                onClick={() => setPretLocatieTab(loc.id)}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
+                  pretLocatieTab === loc.id ? 'border-brand text-brand' : 'border-transparent text-gray-500 hover:text-brand'
+                }`}>
+                {loc.numeLocatie}
+              </button>
+            ))}
+          </div>
+
+          {/* Per-location: show which global services are overridden */}
+          {pretLocatieTab !== 'global' && (
+            <div className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+              Servicii specifice pentru aceasta locatie. Serviciile fara override vor folosi pretul Global.
+            </div>
+          )}
+
           <div className="card overflow-x-auto scrollbar-hide">
             <table className="text-sm" style={{ tableLayout: 'fixed', width: '100%' }}>
               <colgroup>
-                <col style={{ width: '200px' }} />
+                <col style={{ width: '220px' }} />
                 {['','','','','',''].map((_, i) => <col key={i} style={{ width: '110px' }} />)}
+                <col style={{ width: '80px' }} />
               </colgroup>
               <thead className="bg-gray-50 dark:bg-gray-800 text-xs text-gray-400 uppercase">
                 <tr>
@@ -180,18 +221,20 @@ export default function AdminSettings() {
                   {['Pret Auto', 'Pret SUV', 'Pret Van', 'Com. Auto', 'Com. SUV', 'Com. Van'].map(h => (
                     <th key={h} className="py-3 text-center">{h}</th>
                   ))}
+                  <th className="py-3 text-center">Activ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                {data?.preturi.map((p: PretServicii) => {
+                {filteredPreturi.map((p: PretServicii) => {
                   const cur = { ...p, ...(preturiState[p.id] ?? {}) }
+                  const isInactive = cur.activ === false
                   return (
-                    <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <tr key={p.id} className={`${isInactive ? 'opacity-50' : ''} hover:bg-gray-50 dark:hover:bg-gray-800`}>
                       <td className="px-4 py-2 font-medium truncate">
                         <div className="flex items-center gap-2">
-                          <span>{p.serviciiPrestate}</span>
+                          <span className={isInactive ? 'line-through text-gray-400' : ''}>{p.serviciiPrestate}</span>
                           <button onClick={() => confirm(`Stergi serviciul "${p.serviciiPrestate}"?`) && deletePret.mutate(p.id)}
-                            className="text-red-400 hover:text-red-600 transition-colors">
+                            className="text-red-400 hover:text-red-600 transition-colors shrink-0">
                             <Trash2 size={13} />
                           </button>
                         </div>
@@ -203,12 +246,21 @@ export default function AdminSettings() {
                             className="w-20 text-center px-2 py-1 text-sm rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-brand [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                         </td>
                       ))}
+                      <td className="py-2 text-center">
+                        <button
+                          onClick={() => editPret.mutate({ id: p.id, data: { activ: !cur.activ } })}
+                          className={`transition-colors ${cur.activ !== false ? 'text-green-500 hover:text-gray-400' : 'text-gray-400 hover:text-green-500'}`}
+                          title={cur.activ !== false ? 'Dezactiveaza' : 'Activeaza'}>
+                          {cur.activ !== false ? <Eye size={16} /> : <EyeOff size={16} />}
+                        </button>
+                      </td>
                     </tr>
                   )
                 })}
               </tbody>
             </table>
           </div>
+
           {preturiDirty && (
             <div className="mt-4 flex justify-end">
               <button onClick={savePreturi} className="btn-primary px-6 py-2">
@@ -216,6 +268,7 @@ export default function AdminSettings() {
               </button>
             </div>
           )}
+
           <div className="mt-4 card px-4 py-3 border-dashed flex gap-3 items-center max-w-sm">
             {pretError && <p className="text-xs text-red-500">{pretError}</p>}
             <input value={newPretName} onChange={e => setNewPretName(e.target.value)}
@@ -223,12 +276,28 @@ export default function AdminSettings() {
             <button onClick={() => {
               setPretError('')
               if (!newPretName.trim()) { setPretError('Numele este obligatoriu'); return }
-              addPret.mutate(newPretName.trim(), {
+              addPret.mutate({ name: newPretName.trim(), locatie_id: activeLocatieId }, {
                 onSuccess: () => setNewPretName(''),
                 onError: (e: unknown) => setPretError((e as { response?: { data?: { error?: string } } }).response?.data?.error ?? 'Eroare'),
               })
             }} className="btn-primary text-xs px-3 whitespace-nowrap">+ Adauga</button>
           </div>
+
+          {/* Per-location: quick-add from global services */}
+          {pretLocatieTab !== 'global' && globalPreturi.filter((gp: PretServicii) => !locPreturiNames.has(gp.serviciiPrestate)).length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs text-gray-400 mb-2">Adauga override pentru serviciu global:</p>
+              <div className="flex flex-wrap gap-2">
+                {globalPreturi.filter((gp: PretServicii) => !locPreturiNames.has(gp.serviciiPrestate)).map((gp: PretServicii) => (
+                  <button key={gp.id}
+                    onClick={() => addPret.mutate({ name: gp.serviciiPrestate, locatie_id: activeLocatieId })}
+                    className="text-xs px-3 py-1.5 rounded border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 hover:text-brand hover:border-brand transition-colors">
+                    + {gp.serviciiPrestate}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </motion.div>
       )}
 

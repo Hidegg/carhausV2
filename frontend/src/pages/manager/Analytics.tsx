@@ -35,6 +35,7 @@ function getBucharestDate() {
 
 export default function ManagerAnalytics() {
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [showComision, setShowComision] = useState(false)
   const dateLabel = useMemo(() => getBucharestDate(), [])
 
   const { data, isLoading } = useQuery<AnalyticsData>({
@@ -110,8 +111,17 @@ export default function ManagerAnalytics() {
       {/* Spalatori */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
         className="card overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Echipa</h3>
+          <button
+            onClick={() => setShowComision(v => !v)}
+            className={`text-xs px-2.5 py-1 rounded border font-medium transition-colors ${
+              showComision
+                ? 'bg-brand text-white border-brand'
+                : 'border-gray-200 dark:border-gray-700 text-gray-500 hover:text-brand'
+            }`}>
+            {showComision ? 'Ascunde Comisioane' : 'Arata Comisioane'}
+          </button>
         </div>
         <div className="divide-y divide-gray-100 dark:divide-gray-800">
           {data.spalatori.sort((a, b) => b.total - a.total).map((s, i) => (
@@ -125,7 +135,9 @@ export default function ManagerAnalytics() {
                 </div>
                 <div className="text-right shrink-0">
                   <div className="text-sm font-bold text-gray-900 dark:text-white">{s.total.toFixed(0)} RON</div>
-                  <div className="text-xs text-brand font-medium">comision {s.comision.toFixed(0)} RON</div>
+                  {showComision && (
+                    <div className="text-xs text-brand font-medium">comision {s.comision.toFixed(0)} RON</div>
+                  )}
                 </div>
               </motion.div>
               <AnimatePresence>

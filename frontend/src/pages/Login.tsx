@@ -70,7 +70,25 @@ export default function Login() {
               {isLoggingIn ? 'Se conecteaza...' : 'Conectare'}
             </button>
           </form>
+        </div>
 
+        <div className="mt-4 card p-3">
+          <p className="text-xs text-gray-400 text-center mb-2">Acces rapid (local)</p>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { username: 'admin',               password: 'admin123',   label: 'Admin' },
+              { username: 'dev',                  password: 'dev123',     label: 'Dev' },
+              { username: 'carhaus_straulesti',   password: 'manager123', label: 'Straulesti' },
+              { username: 'carhaus_caranfil',     password: 'manager123', label: 'Caranfil' },
+            ].map(u => (
+              <button key={u.username} type="button"
+                onClick={() => { setUsername(u.username); setPassword(u.password) }}
+                className="px-3 py-2 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-brand hover:text-brand transition-colors text-left">
+                <span className="font-semibold block">{u.label}</span>
+                <span className="text-gray-400">{u.username}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </motion.div>
     </div>
