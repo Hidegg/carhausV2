@@ -3,7 +3,7 @@ import { useAuth } from '../hooks/useAuth'
 import {
   LayoutDashboard, Car, Users, TrendingUp,
   Settings, BarChart2,
-  Server, Shield, Globe, History, UserSquare2
+  Server, Shield, Globe, History, UserSquare2, LogOut
 } from 'lucide-react'
 
 const adminLinks = [
@@ -48,11 +48,11 @@ function NavItem({ to, label, icon: Icon, onClose }: { to: string; label: string
 }
 
 export default function Sidebar({ onClose }: Props) {
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
 
   return (
-    <aside className="w-56 h-full bg-white dark:bg-[#1f1f1f] border-r border-gray-200 dark:border-gray-700 flex flex-col shadow-xl overflow-y-auto">
-      <nav className="flex-1 py-5">
+    <aside className="w-56 h-full bg-white dark:bg-[#1f1f1f] border-r border-gray-200 dark:border-gray-700 flex flex-col shadow-xl">
+      <nav className="flex-1 py-5 overflow-y-auto">
 
         {user?.rol === 'manager' && (
           <>
@@ -87,6 +87,19 @@ export default function Sidebar({ onClose }: Props) {
         )}
 
       </nav>
+
+      {/* Footer: user info + logout */}
+      <div className="border-t border-gray-100 dark:border-gray-700 px-4 py-3 flex items-center justify-between gap-2 shrink-0">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-brand uppercase tracking-wide leading-none">{user?.rol}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{user?.username}</p>
+        </div>
+        <button onClick={() => { logout(); onClose() }}
+                title="Logout"
+                className="p-1.5 text-gray-400 hover:text-red-500 transition-colors shrink-0">
+          <LogOut size={16} />
+        </button>
+      </div>
     </aside>
   )
 }
