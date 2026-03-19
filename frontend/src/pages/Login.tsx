@@ -11,7 +11,7 @@ export default function Login() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (user) navigate(user.rol === 'manager' ? '/manager/dashboard' : '/admin/overview', { replace: true })
+    if (user) navigate(user.rol === 'manager' ? '/manager/dashboard' : user.rol === 'dev' ? '/dev/overview' : '/admin/overview', { replace: true })
   }, [user])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -19,7 +19,7 @@ export default function Login() {
     setError('')
     try {
       const u = await login({ username, password })
-      navigate(u.rol === 'manager' ? '/manager/dashboard' : '/admin/overview', { replace: true })
+      navigate(u.rol === 'manager' ? '/manager/dashboard' : u.rol === 'dev' ? '/dev/overview' : '/admin/overview', { replace: true })
     } catch {
       setError('Username sau parola incorecte.')
     }

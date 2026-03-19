@@ -52,6 +52,7 @@ export default function ManagerForm() {
   const [termeni, setTermeni] = useState(false)
   const [brandPickerOpen, setBrandPickerOpen] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [formError, setFormError] = useState('')
   const clockRef = useRef<ReturnType<typeof setInterval>>()
 
   // Live clock — updates every second, syncs date state every minute
@@ -103,6 +104,8 @@ export default function ManagerForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    setFormError('')
+    if (selectedServices.length === 0) { setFormError('Selecteaza cel putin un serviciu.'); return }
     mutation.mutate({
       numarAutoturism: numar.toUpperCase(),
       tipAutoturism: tip,
@@ -313,6 +316,9 @@ export default function ManagerForm() {
             <span className="text-lg font-bold text-brand">{total.toFixed(2)} RON</span>
           </div>
 
+          {formError && (
+            <p className="text-sm text-red-500 text-center -mb-1">{formError}</p>
+          )}
           <button type="submit" disabled={mutation.isPending}
             className="btn-primary w-full py-3 text-base">
             {mutation.isPending ? 'Se inregistreaza...' : 'Inregistreaza Serviciu'}

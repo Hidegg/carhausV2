@@ -289,6 +289,7 @@ def analytics():
 
 @manager_bp.route('/client/<numar>')
 @login_required
+@manager_required
 def get_client(numar):
     client = Clienti.query.filter_by(numarAutoturism=numar.upper()).first()
     if client:
