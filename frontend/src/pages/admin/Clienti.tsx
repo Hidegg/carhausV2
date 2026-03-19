@@ -25,7 +25,7 @@ export default function AdminClienti() {
   const [sort, setSort] = useState<Sort>('vizite')
   const [dir, setDir] = useState<'asc' | 'desc'>('desc')
   const [q, setQ] = useState('')
-  const [brand, setBrand] = useState('')
+  const [brands, setBrands] = useState<string[]>([])
   const [showBrandPicker, setShowBrandPicker] = useState(false)
   const [activeTab, setActiveTab] = useState<string>()
 
@@ -42,8 +42,8 @@ export default function AdminClienti() {
   const locatieId = settingsData?.locatii.find(l => l.numeLocatie === tab)?.id
 
   const { data, isLoading } = useQuery<AdminClientiResponse>({
-    queryKey: ['admin', 'clienti', locatieId, sort, dir, q, brand],
-    queryFn: () => adminApi.clienti({ locatie_id: locatieId, sort, dir, q: q || undefined, brand: brand || undefined }),
+    queryKey: ['admin', 'clienti', locatieId, sort, dir, q, brands],
+    queryFn: () => adminApi.clienti({ locatie_id: locatieId, sort, dir, q: q || undefined, brand: brands.length ? brands.join(',') : undefined }),
     enabled: tabs.length > 0,
     placeholderData: keepPreviousData,
   })
@@ -81,11 +81,15 @@ export default function AdminClienti() {
             />
           </div>
 
-          {brand ? (
-            <button onClick={() => setBrand('')}
+          {brands.length > 0 ? (
+            <button onClick={() => setShowBrandPicker(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-brand text-white">
-              {brand}
-              <X size={13} />
+              <Tag size={14} />
+              {brands.length === 1 ? brands[0] : `${brands[0]} +${brands.length - 1}`}
+              <span onClick={e => { e.stopPropagation(); setBrands([]) }}
+                className="ml-0.5 opacity-80 hover:opacity-100">
+                <X size={13} />
+              </span>
             </button>
           ) : (
             <button onClick={() => setShowBrandPicker(true)}
@@ -181,7 +185,8 @@ export default function AdminClienti() {
       {/* Brand picker modal */}
       {showBrandPicker && (
         <BrandPicker
-          onSelect={name => { setBrand(name.toUpperCase()); setShowBrandPicker(false) }}
+          selected={brands}
+          onConfirm={names => setBrands(names)}
           onClose={() => setShowBrandPicker(false)}
         />
       )}

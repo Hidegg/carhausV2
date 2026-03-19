@@ -237,7 +237,8 @@ def clienti_list():
     sort  = request.args.get('sort', 'vizite')
     dir_  = request.args.get('dir', 'desc')
     q_str = request.args.get('q', '').strip().upper()
-    brand = request.args.get('brand', '').strip().upper()
+    brand_raw = request.args.get('brand', '').strip().upper()
+    brands = [b for b in brand_raw.split(',') if b]
 
     # Aggregate per client: visits (distinct timestamps), collected total, last visit
     stats_q = db.session.query(
@@ -271,8 +272,8 @@ def clienti_list():
         clienti_q = clienti_q.filter_by(locatie_id=locatie_id)
     if q_str:
         clienti_q = clienti_q.filter(Clienti.numarAutoturism.contains(q_str))
-    if brand:
-        clienti_q = clienti_q.filter(Clienti.marcaAutoturism == brand)
+    if brands:
+        clienti_q = clienti_q.filter(Clienti.marcaAutoturism.in_(brands))
     all_clients = clienti_q.all()
 
     result = []

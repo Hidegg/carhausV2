@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Search, Plus, ArrowLeft } from 'lucide-react'
+import { X, Search, Plus, ArrowLeft, Check } from 'lucide-react'
 import brandsData from '../data/carBrands.json'
 import europeanBrands from '../data/europeanBrands'
 
@@ -169,14 +169,16 @@ function AddModal({ custom, onAdd, onClose }: AddModalProps) {
 // ── Main picker ─────────────────────────────────────────────────────────────
 
 interface Props {
-  onSelect: (name: string) => void
+  selected: string[]
+  onConfirm: (names: string[]) => void
   onClose: () => void
 }
 
-export default function BrandPicker({ onSelect, onClose }: Props) {
+export default function BrandPicker({ selected, onConfirm, onClose }: Props) {
   const [search, setSearch] = useState('')
   const [custom, setCustom] = useState<Brand[]>(getCustomBrands)
   const [addOpen, setAddOpen] = useState(false)
+  const [localSelected, setLocalSelected] = useState<string[]>(selected)
   const searchRef = useRef<HTMLInputElement>(null)
 
   const baseBrands: Brand[] = [
@@ -196,15 +198,22 @@ export default function BrandPicker({ onSelect, onClose }: Props) {
     return () => window.removeEventListener('keydown', handler)
   }, [addOpen, onClose])
 
+  const toggle = (name: string) => {
+    const upper = name.toUpperCase()
+    setLocalSelected(prev =>
+      prev.includes(upper) ? prev.filter(b => b !== upper) : [...prev, upper]
+    )
+  }
+
   const handleAdd = (brand: Brand) => {
     const updated = [...custom, brand]
     setCustom(updated)
     saveCustomBrands(updated)
-    onSelect(brand.name.toUpperCase())
-    onClose()
+    toggle(brand.name)
+    setAddOpen(false)
   }
 
-  const pick = (name: string) => { onSelect(name.toUpperCase()); onClose() }
+  const handleConfirm = () => { onConfirm(localSelected); onClose() }
 
   return (
     <AnimatePresence>
@@ -237,39 +246,66 @@ export default function BrandPicker({ onSelect, onClose }: Props) {
               ? <p className="text-center text-gray-400 text-sm py-12">Nicio marca gasita.</p>
               : (
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
-                  {filtered.map(brand => (
-                    <div key={brand.slug} className="flex flex-col items-center gap-2">
-                      <button onClick={() => pick(brand.name)}
-                        className="w-full aspect-square flex items-center justify-center p-4 rounded-xl border border-gray-100 dark:border-gray-800 hover:border-brand hover:bg-brand/5 dark:hover:bg-brand/10 transition-all">
-                        {brand.image?.thumb ? (
-                          <img src={brand.image.thumb} alt={brand.name}
-                            className="w-full h-full object-contain"
-                            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                        ) : (
-                          <span className="text-2xl font-bold text-gray-300 dark:text-gray-600">
-                            {brand.name.charAt(0)}
-                          </span>
-                        )}
-                      </button>
-                      <span className="text-xs font-medium text-center text-gray-600 dark:text-gray-400 leading-tight line-clamp-2 w-full">
-                        {brand.name}
-                      </span>
-                    </div>
-                  ))}
+                  {filtered.map(brand => {
+                    const isSelected = localSelected.includes(brand.name.toUpperCase())
+                    return (
+                      <div key={brand.slug} className="flex flex-col items-center gap-2">
+                        <button onClick={() => toggle(brand.name)}
+                          className={`relative w-full aspect-square flex items-center justify-center p-4 rounded-xl border transition-all ${
+                            isSelected
+                              ? 'border-brand bg-brand/10 dark:bg-brand/20'
+                              : 'border-gray-100 dark:border-gray-800 hover:border-brand hover:bg-brand/5 dark:hover:bg-brand/10'
+                          }`}>
+                          {brand.image?.thumb ? (
+                            <img src={brand.image.thumb} alt={brand.name}
+                              className="w-full h-full object-contain"
+                              onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                          ) : (
+                            <span className="text-2xl font-bold text-gray-300 dark:text-gray-600">
+                              {brand.name.charAt(0)}
+                            </span>
+                          )}
+                          {isSelected && (
+                            <span className="absolute top-1 right-1 w-4 h-4 bg-brand rounded-full flex items-center justify-center">
+                              <Check size={10} className="text-white" strokeWidth={3} />
+                            </span>
+                          )}
+                        </button>
+                        <span className="text-xs font-medium text-center text-gray-600 dark:text-gray-400 leading-tight line-clamp-2 w-full">
+                          {brand.name}
+                        </span>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
           </div>
 
           {/* Footer */}
-          <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex justify-end">
+          <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-3">
             <motion.button
               onClick={() => setAddOpen(true)}
               whileTap={{ scale: 0.88 }}
-              className="w-9 h-9 flex items-center justify-center rounded-lg bg-brand text-white md:hover:bg-brand-light md:hover:scale-110 active:scale-90 transition-all"
+              className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-brand md:hover:scale-110 active:scale-90 transition-all"
               title="Adauga marca"
             >
               <Plus size={18} />
             </motion.button>
+            <div className="flex items-center gap-2">
+              {localSelected.length > 0 && (
+                <button onClick={() => setLocalSelected([])}
+                  className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                  Sterge tot
+                </button>
+              )}
+              <motion.button
+                onClick={handleConfirm}
+                whileTap={{ scale: 0.95 }}
+                className="px-5 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-brand-light transition-colors"
+              >
+                {localSelected.length > 0 ? `Aplica (${localSelected.length})` : 'Aplica'}
+              </motion.button>
+            </div>
           </div>
         </motion.div>
 
