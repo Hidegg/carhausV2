@@ -28,8 +28,8 @@ with app.app_context():
         exit(0)
 
     # Locations
-    straulesti = Locatie(numeLocatie="CARHAUS STRAULESTI")
-    caranfil   = Locatie(numeLocatie="CARHAUS CARANFIL")
+    straulesti = Locatie(numeLocatie="STRAULESTI")
+    caranfil   = Locatie(numeLocatie="CARANFIL")
     db.session.add_all([straulesti, caranfil])
     db.session.commit()
 
@@ -71,6 +71,6 @@ with app.app_context():
     db.session.commit()
 
     print("Database seeded successfully.")
-    print("  Locations: CARHAUS STRAULESTI, CARHAUS CARANFIL")
+    print("  Locations: STRAULESTI, CARANFIL")
     print("  Users: admin / dev / carhaus_straulesti / carhaus_caranfil")
     print("  Washers and prices loaded.")

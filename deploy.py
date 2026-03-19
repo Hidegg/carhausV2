@@ -24,3 +24,13 @@ with app.app_context():
         from flask_migrate import upgrade
         upgrade()
         print('[deploy] Done.')
+
+    # One-time: rename locations to drop "CARHAUS " prefix
+    from backend.models import Locatie
+    renames = {'CARHAUS STRAULESTI': 'STRAULESTI', 'CARHAUS CARANFIL': 'CARANFIL'}
+    for old, new in renames.items():
+        loc = Locatie.query.filter_by(numeLocatie=old).first()
+        if loc:
+            loc.numeLocatie = new
+            print(f'[deploy] Renamed location: {old} → {new}')
+    db.session.commit()
