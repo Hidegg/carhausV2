@@ -11,8 +11,8 @@ type Sort = 'vizite' | 'total' | 'data'
 
 const SORT_LABELS: Record<Sort, string> = {
   vizite: 'Frecventa',
-  total:  'Total cheltuit',
-  data:   'Ultima vizita',
+  total:  'Total',
+  data:   'Data',
 }
 
 function fmt(iso: string | null) {
@@ -58,26 +58,26 @@ export default function AdminClienti() {
   return (
     <div>
       {/* Controls */}
-      <div className="flex flex-wrap gap-2 items-center justify-between mb-4">
+      <div className="flex gap-2 items-center justify-between mb-4">
         {/* Location nav */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           <button onClick={prevTab} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
             <ChevronLeft size={16} />
           </button>
-          <span className="text-sm font-semibold min-w-[7rem] text-center">{tab}</span>
+          <span className="text-sm font-semibold min-w-[5rem] text-center">{tab}</span>
           <button onClick={nextTab} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
             <ChevronRight size={16} />
           </button>
         </div>
 
         {/* Search + brand */}
-        <div className="flex gap-2 items-center flex-wrap">
+        <div className="flex gap-2 items-center">
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               value={q} onChange={e => setQ(e.target.value)}
               placeholder="Numar..."
-              className="pl-8 pr-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1f1f1f] outline-none focus:border-brand w-36"
+              className="pl-8 pr-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1f1f1f] outline-none focus:border-brand w-24"
             />
           </div>
 
@@ -143,9 +143,9 @@ export default function AdminClienti() {
               <tr>
                 <th className="px-4 py-3 text-left">Masina</th>
                 <th className="px-4 py-3 text-right">Vizite</th>
-                <th className="px-4 py-3 text-right">Total</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap w-28">Total</th>
                 <th className="px-4 py-3 text-right hidden sm:table-cell">Top serviciu</th>
-                <th className="px-4 py-3 text-right hidden sm:table-cell">Ultima vizita</th>
+                <th className="px-4 py-3 text-right hidden sm:table-cell whitespace-nowrap w-32">Ultima vizita</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -163,11 +163,11 @@ export default function AdminClienti() {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right font-bold">{c.vizite}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-brand">{c.total.toFixed(0)} RON</td>
+                  <td className="px-4 py-3 text-right font-semibold text-brand whitespace-nowrap">{c.total.toFixed(0)} RON</td>
                   <td className="px-4 py-3 text-right text-xs text-gray-500 hidden sm:table-cell">
                     {c.topServiciu ?? '—'}
                   </td>
-                  <td className="px-4 py-3 text-right text-xs text-gray-400 hidden sm:table-cell">
+                  <td className="px-4 py-3 text-right text-xs text-gray-400 hidden sm:table-cell whitespace-nowrap">
                     {fmt(c.ultimaSpalare)}
                   </td>
                 </tr>

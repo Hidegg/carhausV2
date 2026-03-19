@@ -73,7 +73,7 @@ export default function AdminRapoarte() {
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-wrap items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-6">
         <div className="flex items-center gap-1">
           <button onClick={prevTab} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
             <ChevronLeft size={16} />
