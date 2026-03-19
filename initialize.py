@@ -22,7 +22,10 @@ PRICES = [
 ]
 
 with app.app_context():
-    db.create_all()
+    # Skip seeding if data already exists
+    if Locatie.query.first():
+        print("Database already seeded, skipping.")
+        exit(0)
 
     # Locations
     straulesti = Locatie(numeLocatie="CARHAUS STRAULESTI")
@@ -59,8 +62,7 @@ with app.app_context():
     # Prices
     for row in PRICES:
         name, pa, ps, pv, ca, cs, cv = row
-        existing = PretServicii.query.filter_by(serviciiPrestate=name).first()
-        if not existing:
+        if not PretServicii.query.filter_by(serviciiPrestate=name).first():
             db.session.add(PretServicii(
                 serviciiPrestate=name,
                 pretAutoturism=pa, pretSUV=ps, pretVan=pv,
