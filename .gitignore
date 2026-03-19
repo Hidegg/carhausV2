@@ -1,7 +1,26 @@
-.env
+# Python
 venv/
 __pycache__/
 *.pyc
-instance/carhaus.db
+*.pyo
+
+# Flask instance / SQLite
+instance/
 *.db
+
+# Env
+.env
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Editor / OS
 .spyproject/
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Backups (local only)
+backups/
