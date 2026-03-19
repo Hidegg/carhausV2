@@ -21,6 +21,9 @@ export default function AdminIstoric() {
 
   const tabs = [...(settingsData?.locatii.map(l => l.numeLocatie) ?? []), 'TOTAL']
   const tab      = activeTab ?? tabs[0]
+  const tabIdx   = tabs.indexOf(tab)
+  const prevTab  = () => setActiveTab(tabs[(tabIdx - 1 + tabs.length) % tabs.length])
+  const nextTab  = () => setActiveTab(tabs[(tabIdx + 1) % tabs.length])
   const locatieId = settingsData?.locatii.find(l => l.numeLocatie === tab)?.id
 
   const { data, isLoading } = useQuery<IstoricData>({
@@ -78,19 +81,17 @@ export default function AdminIstoric() {
       {/* Control row */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
 
-        {/* Anual / Lunar pill */}
-        <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg shrink-0">
-          {([['annual', 'Anual'], ['monthly', 'Lunar']] as const).map(([key, label]) => (
-            <button key={key}
-              onClick={() => key === 'annual' ? setMonth(null) : setMonth(new Date().getMonth() + 1)}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                (key === 'annual') === isAnnual
-                  ? 'bg-white dark:bg-[#1f1f1f] text-brand shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}>
-              {label}
-            </button>
-          ))}
+        {/* Anual / Lunar nav */}
+        <div className="flex items-center gap-1 shrink-0">
+          <button onClick={() => isAnnual ? setMonth(new Date().getMonth() + 1) : setMonth(null)}
+            className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-sm font-semibold min-w-[4rem] text-center">{isAnnual ? 'Anual' : 'Lunar'}</span>
+          <button onClick={() => isAnnual ? setMonth(new Date().getMonth() + 1) : setMonth(null)}
+            className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
+            <ChevronRight size={16} />
+          </button>
         </div>
 
         {/* Period navigator */}
@@ -120,18 +121,15 @@ export default function AdminIstoric() {
           </div>
         )}
 
-        {/* Location tabs — pill style */}
-        <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg flex-wrap">
-          {tabs.map(t => (
-            <button key={t} onClick={() => setActiveTab(t)}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                tab === t
-                  ? 'bg-white dark:bg-[#1f1f1f] text-brand shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}>
-              {t}
-            </button>
-          ))}
+        {/* Location nav */}
+        <div className="flex items-center gap-1 shrink-0">
+          <button onClick={prevTab} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-sm font-semibold min-w-[7rem] text-center">{tab}</span>
+          <button onClick={nextTab} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
+            <ChevronRight size={16} />
+          </button>
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Search } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react'
 import { adminApi } from '../../api/client'
 import { AdminClientiResponse } from '../../types'
 
@@ -31,6 +31,9 @@ export default function AdminClienti() {
 
   const tabs = [...(settingsData?.locatii.map(l => l.numeLocatie) ?? []), 'TOTAL']
   const tab = activeTab ?? tabs[0]
+  const tabIdx = tabs.indexOf(tab)
+  const prevTab = () => setActiveTab(tabs[(tabIdx - 1 + tabs.length) % tabs.length])
+  const nextTab = () => setActiveTab(tabs[(tabIdx + 1) % tabs.length])
   const locatieId = settingsData?.locatii.find(l => l.numeLocatie === tab)?.id
 
   const { data, isLoading } = useQuery<AdminClientiResponse>({
@@ -60,19 +63,16 @@ export default function AdminClienti() {
           ))}
         </div>
 
-        {/* Location tabs + search */}
+        {/* Location nav + search */}
         <div className="flex gap-2 flex-wrap items-center">
-          <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg flex-wrap">
-            {tabs.map(t => (
-              <button key={t} onClick={() => setActiveTab(t)}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  tab === t
-                    ? 'bg-white dark:bg-[#1f1f1f] text-brand shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                }`}>
-                {t}
-              </button>
-            ))}
+          <div className="flex items-center gap-1">
+            <button onClick={prevTab} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
+              <ChevronLeft size={16} />
+            </button>
+            <span className="text-sm font-semibold min-w-[7rem] text-center">{tab}</span>
+            <button onClick={nextTab} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
+              <ChevronRight size={16} />
+            </button>
           </div>
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />

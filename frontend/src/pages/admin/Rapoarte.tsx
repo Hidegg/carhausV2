@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { adminApi } from '../../api/client'
 import { ReportsResponse, LocationReport, PeriodStats } from '../../types'
@@ -39,6 +40,15 @@ export default function AdminRapoarte() {
 
   const tabs = [...data.locatii.map(l => l.numeLocatie), 'TOTAL']
   const tab = activeTab ?? tabs[0]
+  const tabIdx = tabs.indexOf(tab)
+  const prevTab = () => setActiveTab(tabs[(tabIdx - 1 + tabs.length) % tabs.length])
+  const nextTab = () => setActiveTab(tabs[(tabIdx + 1) % tabs.length])
+
+  const periods: Period[] = ['zilnic', 'saptamanal', 'lunar']
+  const periodIdx = periods.indexOf(period)
+  const prevPeriod = () => setPeriod(periods[(periodIdx - 1 + periods.length) % periods.length])
+  const nextPeriod = () => setPeriod(periods[(periodIdx + 1) % periods.length])
+
   const r: LocationReport = data.reports[tab]
   if (!r) return null
 
@@ -64,31 +74,25 @@ export default function AdminRapoarte() {
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
-        <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
-          {(['zilnic', 'saptamanal', 'lunar'] as Period[]).map(p => (
-            <button key={p} onClick={() => setPeriod(p)}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                period === p
-                  ? 'bg-white dark:bg-[#1f1f1f] text-brand shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}>
-              {PERIOD_LABELS[p].label}
-            </button>
-          ))}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-1">
+          <button onClick={prevPeriod} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-sm font-semibold min-w-[6rem] text-center">{PERIOD_LABELS[period].label}</span>
+          <button onClick={nextPeriod} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
+            <ChevronRight size={16} />
+          </button>
         </div>
 
-        <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg flex-wrap">
-          {tabs.map(t => (
-            <button key={t} onClick={() => setActiveTab(t)}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                tab === t
-                  ? 'bg-white dark:bg-[#1f1f1f] text-brand shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}>
-              {t}
-            </button>
-          ))}
+        <div className="flex items-center gap-1">
+          <button onClick={prevTab} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-sm font-semibold min-w-[7rem] text-center">{tab}</span>
+          <button onClick={nextTab} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
+            <ChevronRight size={16} />
+          </button>
         </div>
       </div>
 
