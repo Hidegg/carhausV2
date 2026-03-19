@@ -25,15 +25,30 @@ with app.app_context():
         upgrade()
         print('[deploy] Done.')
 
-    # Guard: ensure columns exist and are wide enough regardless of Alembic state
+    # Guard: ensure every column added after the initial schema exists.
+    # Alembic was stamped to head on this DB without running migrations,
+    # so we apply all structural changes idempotently via SQL.
     with db.engine.connect() as conn:
-        conn.execute(db.text(
-            "ALTER TABLE servicii ADD COLUMN IF NOT EXISTS notite VARCHAR(500)"
-        ))
-        conn.execute(db.text(
-            'ALTER TABLE "user" ALTER COLUMN password_hash TYPE VARCHAR(512)'
-        ))
+        stmts = [
+            # servicii
+            "ALTER TABLE servicii ADD COLUMN IF NOT EXISTS \"nrFirma\" VARCHAR(100)",
+            "ALTER TABLE servicii ADD COLUMN IF NOT EXISTS notite VARCHAR(500)",
+            # spalatori
+            "ALTER TABLE spalatori ADD COLUMN IF NOT EXISTS \"prezentAzi\" BOOLEAN NOT NULL DEFAULT TRUE",
+            # clienti
+            "ALTER TABLE clienti ADD COLUMN IF NOT EXISTS \"gdprAcceptat\" BOOLEAN NOT NULL DEFAULT FALSE",
+            "ALTER TABLE clienti ADD COLUMN IF NOT EXISTS \"newsletterAcceptat\" BOOLEAN NOT NULL DEFAULT FALSE",
+            "ALTER TABLE clienti ADD COLUMN IF NOT EXISTS \"termeniAcceptati\" BOOLEAN NOT NULL DEFAULT FALSE",
+            # pret_servicii
+            "ALTER TABLE pret_servicii ADD COLUMN IF NOT EXISTS activ BOOLEAN NOT NULL DEFAULT TRUE",
+            "ALTER TABLE pret_servicii ADD COLUMN IF NOT EXISTS locatie_id INTEGER REFERENCES locatie(id)",
+            # user — widen password_hash so scrypt hashes fit
+            'ALTER TABLE "user" ALTER COLUMN password_hash TYPE VARCHAR(512)',
+        ]
+        for stmt in stmts:
+            conn.execute(db.text(stmt))
         conn.commit()
+    print('[deploy] Column guards applied.')
 
     # One-time: rename locations to drop "CARHAUS " prefix
     from backend.models import Locatie
