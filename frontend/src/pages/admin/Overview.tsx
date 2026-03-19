@@ -76,7 +76,7 @@ export default function AdminOverview() {
 
   return (
     <div>
-      <div className="flex items-center justify-end gap-1 mb-6">
+      <div className="flex items-center justify-center gap-1 mb-6">
         <button onClick={prevTab} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
           <ChevronLeft size={16} />
         </button>

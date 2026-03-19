@@ -74,23 +74,23 @@ export default function AdminRapoarte() {
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <div className="flex items-center gap-1">
-          <button onClick={prevPeriod} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
-            <ChevronLeft size={16} />
-          </button>
-          <span className="text-sm font-semibold min-w-[6rem] text-center">{PERIOD_LABELS[period].label}</span>
-          <button onClick={nextPeriod} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
-            <ChevronRight size={16} />
-          </button>
-        </div>
-
+      <div className="flex flex-wrap items-center gap-3 mb-6">
         <div className="flex items-center gap-1">
           <button onClick={prevTab} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
             <ChevronLeft size={16} />
           </button>
           <span className="text-sm font-semibold min-w-[7rem] text-center">{tab}</span>
           <button onClick={nextTab} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <button onClick={prevPeriod} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-sm font-semibold min-w-[6rem] text-center">{PERIOD_LABELS[period].label}</span>
+          <button onClick={nextPeriod} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
             <ChevronRight size={16} />
           </button>
         </div>

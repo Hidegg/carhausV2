@@ -81,6 +81,17 @@ export default function AdminIstoric() {
       {/* Control row */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
 
+        {/* Location nav */}
+        <div className="flex items-center gap-1 shrink-0">
+          <button onClick={prevTab} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-sm font-semibold min-w-[7rem] text-center">{tab}</span>
+          <button onClick={nextTab} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+
         {/* Anual / Lunar nav */}
         <div className="flex items-center gap-1 shrink-0">
           <button onClick={() => isAnnual ? setMonth(new Date().getMonth() + 1) : setMonth(null)}
@@ -121,16 +132,6 @@ export default function AdminIstoric() {
           </div>
         )}
 
-        {/* Location nav */}
-        <div className="flex items-center gap-1 shrink-0">
-          <button onClick={prevTab} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
-            <ChevronLeft size={16} />
-          </button>
-          <span className="text-sm font-semibold min-w-[7rem] text-center">{tab}</span>
-          <button onClick={nextTab} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
-            <ChevronRight size={16} />
-          </button>
-        </div>
       </div>
 
       {/* KPI cards */}
