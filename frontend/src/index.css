@@ -24,6 +24,13 @@
   body {
     @apply bg-gray-50 dark:bg-[#161616] text-gray-900 dark:text-gray-100 font-sans;
   }
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @layer utilities {
