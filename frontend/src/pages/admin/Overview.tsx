@@ -72,7 +72,7 @@ export default function AdminOverview() {
 
   return (
     <div>
-      <div className="flex items-center justify-end mb-6">
+      <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
         <div className="flex gap-2 flex-wrap">
           {tabs.map(t => (
             <button key={t} onClick={() => setActiveTab(t)}
@@ -114,6 +114,7 @@ export default function AdminOverview() {
           <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
             <p className="text-xs text-gray-400 uppercase tracking-wide">Locatii — Azi</p>
           </div>
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800 text-xs text-gray-400 uppercase">
               <tr>
@@ -134,12 +135,14 @@ export default function AdminOverview() {
               ))}
             </tbody>
           </table>
+          </div>
         </motion.div>
       ) : washerData.length > 0 ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="card overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
             <p className="text-xs text-gray-400 uppercase tracking-wide">Spalatori — Azi</p>
           </div>
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800 text-xs text-gray-400 uppercase">
               <tr>
@@ -158,6 +161,7 @@ export default function AdminOverview() {
               ))}
             </tbody>
           </table>
+          </div>
         </motion.div>
       ) : (
         <div className="card p-8 text-center text-sm text-gray-400">

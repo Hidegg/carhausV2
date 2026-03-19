@@ -108,6 +108,7 @@ export default function AdminSpalatori() {
       </div>
 
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-800 text-xs text-gray-400 uppercase">
             <tr>
@@ -146,6 +147,7 @@ export default function AdminSpalatori() {
             </tfoot>
           )}
         </table>
+        </div>
       </motion.div>
     </div>
   )

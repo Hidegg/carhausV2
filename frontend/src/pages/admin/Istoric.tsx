@@ -195,6 +195,7 @@ export default function AdminIstoric() {
             Servicii — {isAnnual ? year : data.monthLabel}
           </p>
         </div>
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-800 text-xs text-gray-400 uppercase">
             <tr>
@@ -217,6 +218,7 @@ export default function AdminIstoric() {
             ))}
           </tbody>
         </table>
+        </div>
       </motion.div>
     </div>
   )

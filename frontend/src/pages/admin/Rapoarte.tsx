@@ -130,6 +130,7 @@ export default function AdminRapoarte() {
           <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
             <p className="text-xs text-gray-400 uppercase tracking-wide">Spalatori — {PERIOD_LABELS[period].label}</p>
           </div>
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800 text-xs text-gray-400 uppercase">
               <tr>
@@ -148,6 +149,7 @@ export default function AdminRapoarte() {
               ))}
             </tbody>
           </table>
+          </div>
         </motion.div>
       ) : (
         <div className="card p-8 text-center text-sm text-gray-400">

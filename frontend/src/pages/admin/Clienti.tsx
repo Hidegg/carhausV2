@@ -106,6 +106,7 @@ export default function AdminClienti() {
         ) : clienti.length === 0 ? (
           <div className="py-16 text-center text-gray-400 text-sm">Niciun client gasit</div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800 text-xs text-gray-400 uppercase">
               <tr>
@@ -140,6 +141,7 @@ export default function AdminClienti() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </motion.div>
     </div>
