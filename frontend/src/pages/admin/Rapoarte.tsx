@@ -6,10 +6,9 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recha
 import { adminApi } from '../../api/client'
 import { ReportsResponse, LocationReport, PeriodStats } from '../../types'
 
-type Period = 'zilnic' | 'saptamanal' | 'lunar'
+type Period = 'saptamanal' | 'lunar'
 
 const PERIOD_LABELS: Record<Period, { cur: keyof LocationReport; prev: keyof LocationReport; label: string }> = {
-  zilnic:     { cur: 'ziuaCurenta',      prev: 'ziuaTrecuta',      label: 'Zilnic'     },
   saptamanal: { cur: 'saptamanaCurenta', prev: 'saptamanaTrecuta', label: 'Saptamanal' },
   lunar:      { cur: 'lunaCurenta',      prev: 'lunaTrecuta',      label: 'Lunar'      },
 }
@@ -27,7 +26,7 @@ function KpiCard({ label, value, index = 0 }: {
 }
 
 export default function AdminRapoarte() {
-  const [period, setPeriod] = useState<Period>('zilnic')
+  const [period, setPeriod] = useState<Period>('saptamanal')
   const [activeTab, setActiveTab] = useState<string>()
 
   const { data, isLoading } = useQuery<ReportsResponse>({
@@ -44,7 +43,7 @@ export default function AdminRapoarte() {
   const prevTab = () => setActiveTab(tabs[(tabIdx - 1 + tabs.length) % tabs.length])
   const nextTab = () => setActiveTab(tabs[(tabIdx + 1) % tabs.length])
 
-  const periods: Period[] = ['zilnic', 'saptamanal', 'lunar']
+  const periods: Period[] = ['saptamanal', 'lunar']
   const periodIdx = periods.indexOf(period)
   const prevPeriod = () => setPeriod(periods[(periodIdx - 1 + periods.length) % periods.length])
   const nextPeriod = () => setPeriod(periods[(periodIdx + 1) % periods.length])
