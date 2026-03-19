@@ -147,8 +147,8 @@ export default function AdminIstoric() {
       </div>
 
       {/* Revenue bar chart */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.18 }} className="card p-4 mb-6">
-        <p className="text-xs text-gray-400 uppercase tracking-wide mb-4">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.18 }} className="card p-3 mb-6">
+        <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">
           Incasari — {isAnnual ? year : data.monthLabel}
           {isAnnual && (
             <span className="ml-2 normal-case font-normal text-[11px] text-gray-400">
@@ -156,7 +156,7 @@ export default function AdminIstoric() {
             </span>
           )}
         </p>
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height={242}>
           <BarChart
             data={data.bars}
             margin={{ left: 0, right: 0 }}
@@ -176,11 +176,11 @@ export default function AdminIstoric() {
       </motion.div>
 
       {/* Spalari line chart */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.26 }} className="card p-4 mb-6">
-        <p className="text-xs text-gray-400 uppercase tracking-wide mb-4">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.26 }} className="card p-3 mb-6">
+        <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">
           Spalari — {isAnnual ? year : data.monthLabel}
         </p>
-        <ResponsiveContainer width="100%" height={160}>
+        <ResponsiveContainer width="100%" height={176}>
           <LineChart data={data.bars} margin={{ left: 0, right: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(156,163,175,0.15)" />
             <XAxis dataKey="label" tick={{ fontSize: 10 }} />

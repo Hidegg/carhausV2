@@ -104,7 +104,7 @@ export default function AdminOverview() {
       </div>
 
       {/* Payment split */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="card p-4 mb-6">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="card p-3 mb-6">
         <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">Incasari pe tip plata — Azi</p>
         <PaymentBar r={r} />
       </motion.div>

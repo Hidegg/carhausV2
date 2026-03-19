@@ -37,9 +37,9 @@ export default function DevOverview() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="card p-4">
-          <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-4">Spalari per Locatie (all-time)</h3>
-          <ResponsiveContainer width="100%" height={200}>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="card p-3">
+          <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3">Spalari per Locatie (all-time)</h3>
+          <ResponsiveContainer width="100%" height={220}>
             <BarChart data={barData}>
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
@@ -49,9 +49,9 @@ export default function DevOverview() {
           </ResponsiveContainer>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="card p-4">
-          <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-4">Incasari per Locatie (all-time)</h3>
-          <ResponsiveContainer width="100%" height={200}>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="card p-3">
+          <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3">Incasari per Locatie (all-time)</h3>
+          <ResponsiveContainer width="100%" height={220}>
             <BarChart data={barData}>
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />

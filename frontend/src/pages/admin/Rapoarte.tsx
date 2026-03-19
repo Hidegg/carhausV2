@@ -104,14 +104,14 @@ export default function AdminRapoarte() {
       </div>
 
       {/* Payment chart */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="card p-4 mb-6">
-        <p className="text-xs text-gray-400 uppercase tracking-wide mb-4">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="card p-3 mb-6">
+        <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">
           Incasari tip plata — {PERIOD_LABELS[period].label}
         </p>
         {paymentChart.length === 0 ? (
           <p className="text-sm text-gray-400 py-4 text-center">Nicio incasare in perioada selectata</p>
         ) : (
-          <ResponsiveContainer width="100%" height={200}>
+          <ResponsiveContainer width="100%" height={220}>
             <BarChart data={paymentChart}>
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
