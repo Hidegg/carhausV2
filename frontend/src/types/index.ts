@@ -61,7 +61,7 @@ export interface PeriodStats {
   cursInAsteptare: { count: number; amount: number }
   clientiNoi: number
   spalariTipPlata: { CASH: number; CARD: number; CURS: number; CONTRACT: number; PROTOCOL: number }
-  incasariTipPlata: { CASH: number; CARD: number; CONTRACT: number; PROTOCOL: number }
+  incasariTipPlata: { CASH: number; CARD: number; CURS?: number; CONTRACT: number; PROTOCOL: number }
   spalariPerSpalator: Record<string, number>
   comisionPerSpalator: Record<string, number>
   spalariTipServiciu: Record<string, number>
