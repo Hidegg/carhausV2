@@ -25,6 +25,13 @@ with app.app_context():
         upgrade()
         print('[deploy] Done.')
 
+    # Guard: add columns that may have been missed if Alembic was stamped ahead
+    with db.engine.connect() as conn:
+        conn.execute(db.text(
+            "ALTER TABLE servicii ADD COLUMN IF NOT EXISTS notite VARCHAR(500)"
+        ))
+        conn.commit()
+
     # One-time: rename locations to drop "CARHAUS " prefix
     from backend.models import Locatie
     renames = {'CARHAUS STRAULESTI': 'STRAULESTI', 'CARHAUS CARANFIL': 'CARANFIL'}
