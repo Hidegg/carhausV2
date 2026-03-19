@@ -76,7 +76,7 @@ export default function AdminOverview() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 px-1">
         <h2 className="text-lg font-bold tracking-wide">Raport Zilnic</h2>
         <div className="flex items-center gap-1">
         <button onClick={prevTab} className="p-1.5 rounded-lg card text-gray-500 hover:text-brand transition-colors">
