@@ -62,14 +62,18 @@ export default function AdminClienti() {
 
         {/* Location tabs + search */}
         <div className="flex gap-2 flex-wrap items-center">
-          {tabs.map(t => (
-            <button key={t} onClick={() => setActiveTab(t)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                tab === t ? 'bg-brand text-white border-brand' : 'card text-gray-600 dark:text-gray-300 hover:border-brand'
-              }`}>
-              {t}
-            </button>
-          ))}
+          <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg flex-wrap">
+            {tabs.map(t => (
+              <button key={t} onClick={() => setActiveTab(t)}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  tab === t
+                    ? 'bg-white dark:bg-[#1f1f1f] text-brand shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}>
+                {t}
+              </button>
+            ))}
+          </div>
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input

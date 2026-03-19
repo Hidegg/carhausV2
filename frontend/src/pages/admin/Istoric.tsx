@@ -75,19 +75,22 @@ export default function AdminIstoric() {
 
   return (
     <div>
-      {/* Single control row */}
+      {/* Control row */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
 
-        {/* Anual / Lunar switch */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className={`text-sm transition-colors ${isAnnual ? 'font-semibold text-brand' : 'text-gray-400'}`}>Anual</span>
-          <button
-            onClick={() => isAnnual ? setMonth(new Date().getMonth() + 1) : setMonth(null)}
-            className={`relative w-9 h-5 rounded-full transition-colors ${isAnnual ? 'bg-brand' : 'bg-brand'}`}
-          >
-            <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${isAnnual ? 'translate-x-0.5' : 'translate-x-4'}`} />
-          </button>
-          <span className={`text-sm transition-colors ${!isAnnual ? 'font-semibold text-brand' : 'text-gray-400'}`}>Lunar</span>
+        {/* Anual / Lunar pill */}
+        <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg shrink-0">
+          {([['annual', 'Anual'], ['monthly', 'Lunar']] as const).map(([key, label]) => (
+            <button key={key}
+              onClick={() => key === 'annual' ? setMonth(null) : setMonth(new Date().getMonth() + 1)}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                (key === 'annual') === isAnnual
+                  ? 'bg-white dark:bg-[#1f1f1f] text-brand shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}>
+              {label}
+            </button>
+          ))}
         </div>
 
         {/* Period navigator */}
@@ -117,12 +120,14 @@ export default function AdminIstoric() {
           </div>
         )}
 
-        {/* Location tabs */}
-        <div className="flex gap-2 flex-wrap">
+        {/* Location tabs — pill style */}
+        <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg flex-wrap">
           {tabs.map(t => (
             <button key={t} onClick={() => setActiveTab(t)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                tab === t ? 'bg-brand text-white border-brand' : 'card text-gray-600 dark:text-gray-300 hover:border-brand'
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                tab === t
+                  ? 'bg-white dark:bg-[#1f1f1f] text-brand shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
               }`}>
               {t}
             </button>

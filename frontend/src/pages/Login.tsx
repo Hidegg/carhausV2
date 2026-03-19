@@ -77,7 +77,6 @@ export default function Login() {
             <div className="space-y-1">
               {[
                 { u: 'admin', p: '12345678', role: 'admin' },
-                { u: 'dev', p: '87654321', role: 'dev' },
                 { u: 'carhaus_straulesti', p: 'password1', role: 'manager' },
                 { u: 'carhaus_caranfil', p: 'password', role: 'manager' },
               ].map(a => (
