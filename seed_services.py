@@ -110,9 +110,12 @@ with app.app_context():
 
     for day_offset in range(60, -1, -1):
         date_ = today - timedelta(days=day_offset)
-        # Weekends get more cars, weekdays fewer
+        # Today gets a guaranteed solid number; weekends more, weekdays fewer
         is_weekend = date_.weekday() >= 5
-        cars_today = random.randint(8, 18) if is_weekend else random.randint(4, 12)
+        if day_offset == 0:
+            cars_today = random.randint(10, 18)
+        else:
+            cars_today = random.randint(8, 18) if is_weekend else random.randint(4, 12)
 
         # Pick a random location bias per day (some days one loc is busier)
         for _ in range(cars_today):
