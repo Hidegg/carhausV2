@@ -65,6 +65,10 @@ with app.app_context():
         print("Services already seeded, skipping.")
         exit(0)
 
+    # Clear any partial seed data (clients created but services never committed)
+    Clienti.query.delete()
+    db.session.commit()
+
     locatii = Locatie.query.all()
     preturi = {p.serviciiPrestate: p for p in PretServicii.query.all()}
 
