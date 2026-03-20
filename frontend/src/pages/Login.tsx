@@ -74,12 +74,11 @@ export default function Login() {
 
         <div className="mt-4 card p-3">
           <p className="text-xs text-gray-400 text-center mb-2">Acces rapid (local)</p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {[
-              { username: 'admin',               password: 'admin123',   label: 'Admin' },
-              { username: 'dev',                  password: 'dev123',     label: 'Dev' },
-              { username: 'carhaus_straulesti',   password: 'manager123', label: 'Straulesti' },
-              { username: 'carhaus_caranfil',     password: 'manager123', label: 'Caranfil' },
+              { username: 'admin',             password: '12345678', label: 'Admin' },
+              { username: 'carhaus_straulesti', password: 'password1', label: 'Straulesti' },
+              { username: 'carhaus_caranfil',   password: 'password',  label: 'Caranfil' },
             ].map(u => (
               <button key={u.username} type="button"
                 onClick={() => { setUsername(u.username); setPassword(u.password) }}
