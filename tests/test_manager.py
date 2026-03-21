@@ -1,6 +1,7 @@
 """Tests for /api/manager/* endpoints."""
 import pytest
-from datetime import datetime
+from datetime import datetime, timedelta, time
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 from tests.conftest import uid, make_service
 
@@ -708,3 +709,174 @@ def test_anon_cannot_access_manager_routes(anon):
     ]:
         rv = anon.get(path)
         assert rv.status_code == 401, f'Expected 401 for {path}, got {rv.status_code}'
+
+
+# ── HARD-04: tipPlata enum validation ────────────────────────────────────────
+
+def test_add_serviciu_invalid_tipPlata_returns_400(as_manager, seed):
+    rv = make_service(as_manager, seed, tipPlata='INVALID_TYPE')
+    assert rv.status_code == 400
+    data = rv.get_json()
+    assert 'error' in data
+
+
+def test_update_payment_invalid_tipPlata_returns_400(as_manager, seed, app):
+    plate = 'VLD' + uid()
+    make_service(as_manager, seed, numarAutoturism=plate, tipPlata='CASH')
+
+    with app.app_context():
+        from backend.models import Servicii, Clienti
+        client = Clienti.query.filter_by(numarAutoturism=plate).first()
+        svc_id = Servicii.query.filter_by(clienti_id=client.id).first().id
+
+    rv = as_manager.post(f'/api/manager/update-payment/{svc_id}', json={'tipPlata': 'BOGUS'})
+    assert rv.status_code == 400
+    assert 'error' in rv.get_json()
+
+
+def test_edit_serviciu_invalid_tipPlata_returns_400(as_manager, seed, app):
+    plate = 'VLE' + uid()
+    make_service(as_manager, seed, numarAutoturism=plate, tipPlata='CASH')
+
+    with app.app_context():
+        from backend.models import Servicii, Clienti
+        client = Clienti.query.filter_by(numarAutoturism=plate).first()
+        svc_id = Servicii.query.filter_by(clienti_id=client.id).first().id
+
+    rv = as_manager.put(f'/api/manager/servicii/{svc_id}', json={'tipPlata': 'BOGUS'})
+    assert rv.status_code == 400
+    assert 'error' in rv.get_json()
+
+
+# ── HARD-05: service cap ────────────────────────────────────────────────────
+
+def test_add_serviciu_over_20_returns_400(as_manager, seed):
+    """Submitting more than 20 services in one request should be rejected."""
+    services = ['Spalare Simpla'] * 21
+    rv = make_service(as_manager, seed, serviciiPrestate=services)
+    assert rv.status_code == 400
+    assert 'error' in rv.get_json()
+
+
+# ── HARD-07: dashboard eager loading still works ─────────────────────────────
+
+def test_dashboard_returns_spalator_name(as_manager, seed):
+    """Verify joinedload on spalatori relationship works in dashboard response."""
+    plate = 'EAG' + uid()
+    make_service(as_manager, seed, numarAutoturism=plate)
+
+    rv = as_manager.get('/api/manager/dashboard')
+    assert rv.status_code == 200
+    data = rv.get_json()
+    card = next(c for c in data if c['client']['numarAutoturism'] == plate)
+    assert card['servicii'][0]['spalator'] == seed['spalator_name']
+
+
+# ── BUG-02: update_payment preserves tipPlata when not sent ──────────────────
+
+def test_update_payment_without_tipPlata_preserves_existing(as_manager, seed, app):
+    plate = 'PRV' + uid()
+    make_service(as_manager, seed, numarAutoturism=plate, tipPlata='CARD')
+
+    with app.app_context():
+        from backend.models import Servicii, Clienti
+        client = Clienti.query.filter_by(numarAutoturism=plate).first()
+        svc_id = Servicii.query.filter_by(clienti_id=client.id).first().id
+
+    rv = as_manager.post(f'/api/manager/update-payment/{svc_id}', json={'nrFirma': 'TEST'})
+    assert rv.status_code == 200
+
+    with app.app_context():
+        from backend.models import Servicii
+        svc = Servicii.query.get(svc_id)
+        assert svc.tipPlata == 'CARD'  # must not become NULL
+
+
+# ── BUG-05: spalator ID based lookup ─────────────────────────────────────────
+
+def test_add_serviciu_by_spalatori_id(as_manager, seed, app):
+    """Service creation using spalatori_id instead of spalator name."""
+    plate = 'SID' + uid()
+    rv = as_manager.post('/api/manager/servicii', json={
+        'date': datetime.now(BUCHAREST).isoformat(),
+        'numarAutoturism': plate,
+        'tipAutoturism': 'AUTOTURISM',
+        'marcaAutoturism': 'BMW',
+        'serviciiPrestate': ['Spalare Simpla'],
+        'spalatori_id': seed['spalator_id'],
+        'tipPlata': 'CASH',
+    })
+    assert rv.status_code == 200
+
+    with app.app_context():
+        from backend.models import Servicii, Clienti
+        client = Clienti.query.filter_by(numarAutoturism=plate).first()
+        svc = Servicii.query.filter_by(clienti_id=client.id).first()
+        assert svc.spalatori_id == seed['spalator_id']
+
+
+# ── 4am cutoff boundary ─────────────────────────────────────────────────────
+
+def test_get_day_window_before_4am_returns_previous_day():
+    """Before 4am Bucharest, the working day is still the previous calendar day."""
+    from backend.blueprints.manager.routes import get_day_window
+    fake_345am = datetime(2026, 3, 21, 3, 45, tzinfo=BUCHAREST)
+
+    with patch('backend.blueprints.manager.routes.datetime') as mock_dt:
+        mock_dt.now.return_value = fake_345am
+        mock_dt.combine = datetime.combine
+        day_start, day_end = get_day_window()
+
+    # Base date should be March 20, not March 21
+    assert day_start == datetime.combine(
+        fake_345am.date() - timedelta(days=1), time(4, 0), tzinfo=BUCHAREST
+    )
+    assert day_end == datetime.combine(
+        fake_345am.date(), time(4, 0), tzinfo=BUCHAREST
+    )
+
+
+def test_get_day_window_after_4am_returns_current_day():
+    """After 4am Bucharest, the working day is the current calendar day."""
+    from backend.blueprints.manager.routes import get_day_window
+    fake_415am = datetime(2026, 3, 21, 4, 15, tzinfo=BUCHAREST)
+
+    with patch('backend.blueprints.manager.routes.datetime') as mock_dt:
+        mock_dt.now.return_value = fake_415am
+        mock_dt.combine = datetime.combine
+        day_start, day_end = get_day_window()
+
+    assert day_start == datetime.combine(
+        fake_415am.date(), time(4, 0), tzinfo=BUCHAREST
+    )
+    assert day_end == datetime.combine(
+        fake_415am.date() + timedelta(days=1), time(4, 0), tzinfo=BUCHAREST
+    )
+
+
+def test_service_at_345am_appears_in_previous_day_dashboard(app, as_manager, seed):
+    """A service submitted at 3:45am should show on the previous day's dashboard."""
+    fake_345am = datetime(2026, 3, 21, 3, 45, tzinfo=BUCHAREST)
+    plate = 'T' + uid()
+
+    # Create a service with a 3:45am timestamp
+    rv = as_manager.post('/api/manager/servicii', json={
+        'date': fake_345am.isoformat(),
+        'numarAutoturism': plate,
+        'tipAutoturism': 'AUTOTURISM',
+        'marcaAutoturism': 'BMW',
+        'serviciiPrestate': ['Spalare Simpla'],
+        'spalator': seed['spalator_name'],
+        'tipPlata': 'CASH',
+    })
+    assert rv.status_code == 200
+
+    # When queried at 3:45am, dashboard returns yesterday's window — service should be there
+    with patch('backend.blueprints.manager.routes.datetime') as mock_dt:
+        mock_dt.now.return_value = fake_345am
+        mock_dt.combine = datetime.combine
+        rv2 = as_manager.get('/api/manager/dashboard')
+
+    data = rv2.get_json()
+    plates = [c['client']['numarAutoturism'] for c in data]
+    assert plate in plates

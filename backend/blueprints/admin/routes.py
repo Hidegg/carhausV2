@@ -245,9 +245,12 @@ def curs_pending():
         q = q.filter(Servicii.locatie_id == locatie_id)
     rows = q.group_by(Servicii.clienti_id).order_by(func.sum(Servicii.pretServicii).desc()).all()
 
+    client_ids = [row.clienti_id for row in rows]
+    clients = {c.id: c for c in Clienti.query.filter(Clienti.id.in_(client_ids)).all()} if client_ids else {}
+
     result = []
     for row in rows:
-        c = Clienti.query.get(row.clienti_id)
+        c = clients.get(row.clienti_id)
         if not c:
             continue
         result.append({

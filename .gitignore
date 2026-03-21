@@ -22,5 +22,10 @@ frontend/dist/
 .idea/
 .vscode/
 
+# Test artifacts
+frontend/playwright-report/
+frontend/test-results/
+test-results/
+
 # Backups (local only)
 backups/

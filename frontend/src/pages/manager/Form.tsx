@@ -52,6 +52,7 @@ export default function ManagerForm() {
   const [clientContext, setClientContext] = useState<ClientContext | null>(null)
   const [date] = useState(getBucharestNow)
   const [spalator, setSpalator] = useState('')
+  const [spalatorId, setSpalatorId] = useState<number | null>(null)
   const [tipPlata, setTipPlata] = useState('CASH')
   const [nrFirma, setNrFirma] = useState('')
   const [notite, setNotite] = useState('')
@@ -87,9 +88,15 @@ export default function ManagerForm() {
       setNumar(''); setTip('AUTOTURISM'); setMarca(''); setEmail(''); setTelefon('')
       setSelectedServices([]); setClientExistent(false); setClientContext(null)
       setGdpr(false); setNewsletter(false); setTermeni(false)
+      setSpalator(''); setSpalatorId(null)
       setTipPlata('CASH'); setNrFirma(''); setNotite('')
       setContactOpen(false); setPlateDropdownOpen(false)
       setTimeout(() => setSuccess(false), 3000)
+      // Return focus to plate input for rapid entry
+      setTimeout(() => {
+        const plateEl = plateInputRef.current?.querySelector('input')
+        plateEl?.focus()
+      }, 100)
     }
   })
 
@@ -161,6 +168,7 @@ export default function ManagerForm() {
       termeniAcceptati: termeni,
       date,
       spalator,
+      spalatori_id: spalatorId,
       tipPlata,
       nrFirma: nrFirma || null,
       notite: notite || null,
@@ -270,51 +278,52 @@ export default function ManagerForm() {
             </div>
           </div>
 
-          {/* Contact / GDPR accordion */}
+          {/* Contact + GDPR toggle */}
           {!clientExistent ? (
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
               <button type="button"
                 onClick={() => setContactOpen(o => !o)}
-                className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-brand transition-colors bg-gray-50 dark:bg-gray-800">
-                <span>Adauga informatii contact</span>
-                {contactOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800">
+                <span>Date personale client</span>
+                <div className={`relative w-10 h-[22px] rounded-full transition-colors ${contactOpen ? 'bg-brand' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                  <div className={`absolute top-[3px] w-4 h-4 rounded-full bg-white shadow transition-transform ${contactOpen ? 'translate-x-[22px]' : 'translate-x-[3px]'}`} />
+                </div>
               </button>
               {contactOpen && (
-                <div className="px-4 pb-4 pt-3 space-y-3 bg-white dark:bg-[#1a1a1a]">
+                <div className="px-4 pb-4 pt-3 space-y-4 bg-white dark:bg-[#1a1a1a]">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="form-label">Email <span className="text-gray-400 text-xs">(optional)</span></label>
+                      <label className="form-label">Email</label>
                       <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                        className="form-input" placeholder="client@email.com" />
+                        className="form-input" placeholder="client@email.com" required={!telefon} />
                     </div>
                     <div>
-                      <label className="form-label">Telefon <span className="text-gray-400 text-xs">(optional)</span></label>
+                      <label className="form-label">Telefon</label>
                       <input type="text" value={telefon} onChange={e => setTelefon(e.target.value)}
-                        className="form-input" placeholder="07xx xxx xxx" />
+                        className="form-input" placeholder="07xx xxx xxx" required={!email} />
                     </div>
                   </div>
-                  <div className="space-y-2 pt-1">
-                    <label className="flex items-start gap-2 cursor-pointer text-sm">
+                  <div className="space-y-2 border-t border-gray-100 dark:border-gray-700 pt-3">
+                    <label className="flex items-start gap-2.5 cursor-pointer text-sm">
                       <input type="checkbox" checked={termeni} onChange={e => setTermeni(e.target.checked)}
-                        className="accent-brand mt-0.5" required />
-                      <span>Am acceptat <span className="text-brand underline cursor-pointer">Termenii si Conditiile</span> <span className="text-red-500">*</span></span>
+                        className="w-4 h-4 mt-0.5 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-brand focus:ring-brand accent-brand" required />
+                      <span className="text-gray-700 dark:text-gray-300">Am acceptat <span className="text-brand underline cursor-pointer">Termenii si Conditiile</span> <span className="text-red-500">*</span></span>
                     </label>
-                    <label className="flex items-start gap-2 cursor-pointer text-sm">
+                    <label className="flex items-start gap-2.5 cursor-pointer text-sm">
                       <input type="checkbox" checked={gdpr} onChange={e => setGdpr(e.target.checked)}
-                        className="accent-brand mt-0.5" required />
-                      <span>Acord prelucrare date personale (GDPR) <span className="text-red-500">*</span></span>
+                        className="w-4 h-4 mt-0.5 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-brand focus:ring-brand accent-brand" required />
+                      <span className="text-gray-700 dark:text-gray-300">Acord prelucrare date personale (GDPR) <span className="text-red-500">*</span></span>
                     </label>
-                    <label className="flex items-start gap-2 cursor-pointer text-sm text-gray-500">
+                    <label className="flex items-start gap-2.5 cursor-pointer text-sm">
                       <input type="checkbox" checked={newsletter} onChange={e => setNewsletter(e.target.checked)}
-                        className="accent-brand mt-0.5" />
-                      <span>Doresc sa primesc oferte si noutati (newsletter)</span>
+                        className="w-4 h-4 mt-0.5 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-brand focus:ring-brand accent-brand" />
+                      <span className="text-gray-500 dark:text-gray-400">Doresc sa primesc oferte si noutati (newsletter)</span>
                     </label>
                   </div>
                 </div>
               )}
             </div>
           ) : (
-            /* For existing clients: show summary if contact info exists */
             (email || telefon) && (
               <div className="text-xs text-gray-500 dark:text-gray-400 px-1">
                 {email && <span className="mr-3">✉ {email}</span>}
@@ -371,7 +380,7 @@ export default function ManagerForm() {
             <label className="form-label">Spalator</label>
             <div className="grid grid-cols-4 gap-2">
               {formData?.spalatori.map((s: Spalator) => (
-                <button key={s.id} type="button" onClick={() => setSpalator(s.numeSpalator)}
+                <button key={s.id} type="button" onClick={() => { setSpalator(s.numeSpalator); setSpalatorId(s.id) }}
                   className={`py-3 rounded-lg text-sm font-medium border transition-colors ${
                     spalator === s.numeSpalator
                       ? 'bg-brand text-white border-brand'

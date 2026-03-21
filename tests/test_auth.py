@@ -87,3 +87,41 @@ def test_logout_clears_session(app, seed):
 def test_protected_route_without_auth_returns_401(anon):
     rv = anon.get('/api/manager/dashboard')
     assert rv.status_code == 401
+
+
+# ── HARD-06: security response headers ───────────────────────────────────────
+
+def test_security_headers_present(anon):
+    """All API responses must include security headers."""
+    rv = anon.get('/api/auth/me')
+    assert rv.headers.get('X-Frame-Options') == 'DENY'
+    assert rv.headers.get('X-Content-Type-Options') == 'nosniff'
+    assert rv.headers.get('Referrer-Policy') == 'strict-origin-when-cross-origin'
+
+
+# ── HARD-01/02: session config ───────────────────────────────────────────────
+
+def test_session_config_values(app):
+    """Verify session security configuration is set."""
+    assert app.config['SESSION_COOKIE_HTTPONLY'] is True
+    assert app.config['SESSION_COOKIE_SAMESITE'] == 'Lax'
+    from datetime import timedelta
+    assert app.config['PERMANENT_SESSION_LIFETIME'] == timedelta(hours=12)
+
+
+def test_login_sets_permanent_session(app, seed):
+    """Login should set session.permanent = True."""
+    with app.test_client() as client:
+        rv = client.post('/api/auth/login', json={
+            'username': 't_admin',
+            'password': 'adminpass',
+        })
+        assert rv.status_code == 200
+        with client.session_transaction() as sess:
+            assert sess.get('_permanent') is True
+
+
+# ── HARD-03: request body size limit ─────────────────────────────────────────
+
+def test_max_content_length_configured(app):
+    assert app.config['MAX_CONTENT_LENGTH'] == 1 * 1024 * 1024

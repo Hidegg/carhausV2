@@ -3,7 +3,22 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { managerApi } from '../../api/client'
 import { ClientCard, Serviciu, PretServicii, Spalator } from '../../types'
-import { Car, Pencil, X, Search } from 'lucide-react'
+import { Car, Pencil, X, Search, Plus } from 'lucide-react'
+
+const PAYMENT_BADGE: Record<string, string> = {
+  CASH: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+  CARD: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  CURS: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
+  CONTRACT: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
+  PROTOCOL: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
+}
+
+const PAYMENT_BTN: Record<string, string> = {
+  CASH: 'border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 active:bg-green-100 dark:active:bg-green-900/30 active:shadow-[0_0_8px_rgba(34,197,94,0.4)]',
+  CARD: 'border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 active:bg-blue-100 dark:active:bg-blue-900/30 active:shadow-[0_0_8px_rgba(59,130,246,0.4)]',
+  CONTRACT: 'border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 active:bg-purple-100 dark:active:bg-purple-900/30 active:shadow-[0_0_8px_rgba(168,85,247,0.4)]',
+  PROTOCOL: 'border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-300 active:bg-orange-100 dark:active:bg-orange-900/30 active:shadow-[0_0_8px_rgba(249,115,22,0.4)]',
+}
 import { Link } from 'react-router-dom'
 import brandsData from '../../data/carBrands.json'
 
@@ -26,6 +41,7 @@ function EditModal({ modal, onClose, formData }: {
   const s = modal.serviciu
   const [serviciiPrestate, setServiciiPrestate] = useState(s.serviciiPrestate)
   const [spalator, setSpalator] = useState(s.spalator ?? '')
+  const [spalatorId, setSpalatorId] = useState(s.spalatori_id)
   const [tipPlata, setTipPlata] = useState(s.tipPlata)
   const [nrFirma, setNrFirma] = useState(s.nrFirma ?? '')
   const [notite, setNotite] = useState(s.notite ?? '')
@@ -34,7 +50,7 @@ function EditModal({ modal, onClose, formData }: {
   const invalidate = () => qc.invalidateQueries({ queryKey: ['manager', 'dashboard'] })
 
   const editMutation = useMutation({
-    mutationFn: () => managerApi.editServiciu(s.id, { serviciiPrestate, spalator, tipPlata, nrFirma: nrFirma || null, notite: notite || null }),
+    mutationFn: () => managerApi.editServiciu(s.id, { serviciiPrestate, spalatori_id: spalatorId, tipPlata, nrFirma: nrFirma || null, notite: notite || null }),
     onSuccess: () => { invalidate(); onClose() },
   })
 
@@ -64,9 +80,9 @@ function EditModal({ modal, onClose, formData }: {
 
         <div>
           <label className="form-label">Spalator</label>
-          <select value={spalator} onChange={e => setSpalator(e.target.value)} className="form-input">
+          <select value={spalatorId ?? ''} onChange={e => { const id = Number(e.target.value); setSpalatorId(id); const sp = formData?.spalatori.find((s: Spalator) => s.id === id); if (sp) setSpalator(sp.numeSpalator) }} className="form-input">
             {formData?.spalatori.map((sp: Spalator) => (
-              <option key={sp.id} value={sp.numeSpalator}>{sp.numeSpalator}</option>
+              <option key={sp.id} value={sp.id}>{sp.numeSpalator}</option>
             ))}
           </select>
         </div>
@@ -97,14 +113,14 @@ function EditModal({ modal, onClose, formData }: {
 
         <div className="flex justify-between pt-2">
           {confirmDelete ? (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-red-500">Confirmi stergerea?</span>
+            <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">
+              <span className="text-xs font-medium text-red-600 dark:text-red-400">Confirmi stergerea?</span>
               <button onClick={() => deleteMutation.mutate()}
                 disabled={deleteMutation.isPending}
-                className="px-3 py-1.5 text-xs rounded bg-red-500 text-white font-medium hover:bg-red-600">
-                Da, sterge
+                className="px-3 py-1.5 text-xs rounded bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors">
+                {deleteMutation.isPending ? 'Se sterge...' : 'Da, sterge'}
               </button>
-              <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 text-xs rounded border text-gray-500">
+              <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                 Anuleaza
               </button>
             </div>
@@ -117,7 +133,7 @@ function EditModal({ modal, onClose, formData }: {
           <button onClick={() => editMutation.mutate()}
             disabled={editMutation.isPending}
             className="btn-primary px-5 py-1.5 text-sm">
-            {editMutation.isPending ? '...' : 'Salveaza'}
+            {editMutation.isPending ? 'Se salveaza...' : 'Salveaza'}
           </button>
         </div>
       </motion.div>
@@ -149,13 +165,26 @@ export default function ManagerDashboard() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['manager', 'dashboard'] }),
   })
 
-  if (isLoading) return <div className="text-center py-20 text-gray-400">Se incarca...</div>
+  if (isLoading) return (
+    <div className="space-y-4">
+      {[...Array(3)].map((_, i) => (
+        <div key={i} className="card overflow-hidden animate-pulse">
+          <div className="bg-gray-200 dark:bg-gray-700 h-12" />
+          <div className="p-4 space-y-3">
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
+            <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded w-1/2" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 
   if (cards.length === 0) return (
     <div className="flex flex-col items-center justify-center py-24 text-gray-400">
       <Car size={56} className="mb-4 opacity-30" />
       <p className="text-lg font-medium">Nicio spalare inregistrata azi.</p>
-      <Link to="/manager/form" className="mt-3 text-sm text-brand hover:underline">
+      <Link to="/manager/form" className="mt-4 inline-flex items-center gap-2 btn-primary px-5 py-2.5">
+        <Plus size={16} />
         Adauga primul serviciu
       </Link>
     </div>
@@ -228,15 +257,14 @@ export default function ManagerDashboard() {
                   <div className="text-right ml-2 shrink-0">
                     <div className="text-sm font-bold text-brand">{s.pretServicii} RON</div>
                     <div className="flex items-center justify-end gap-1.5 mt-1 flex-wrap">
-                      {s.tipPlata === 'CASH' && (
-                        <span className="text-xs px-2 py-0.5 rounded font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">CASH</span>
-                      )}
-                      {s.tipPlata === 'CARD' && (
-                        <span className="text-xs px-2 py-0.5 rounded font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">CARD</span>
+                      {s.tipPlata !== 'CURS' && (
+                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${PAYMENT_BADGE[s.tipPlata]}`}>
+                          {s.tipPlata}{s.nrFirma ? ` · ${s.nrFirma}` : ''}
+                        </span>
                       )}
                       {s.tipPlata === 'CURS' && (
                         <>
-                          <span className="text-xs px-2 py-0.5 rounded font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">CURS</span>
+                          <span className={`text-xs px-2 py-0.5 rounded font-medium ${PAYMENT_BADGE.CURS}`}>CURS</span>
                           {firmaInput?.id === s.id ? (
                             <div className="flex items-center gap-1">
                               <input autoFocus value={firmaValue} onChange={e => setFirmaValue(e.target.value)}
@@ -260,38 +288,23 @@ export default function ManagerDashboard() {
                             </div>
                           ) : (
                             <>
-                              <span className="text-xs text-gray-400">Plata:</span>
                               {['CASH', 'CARD'].map(opt => (
                                 <button key={opt} type="button"
                                   onClick={() => updatePayment.mutate({ id: s.id, tipPlata: opt })}
-                                  className="text-xs px-2 py-0.5 rounded font-medium border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-brand hover:text-brand transition-colors">
+                                  className={`text-xs px-2 py-0.5 rounded font-medium border transition-all ${PAYMENT_BTN[opt]}`}>
                                   {opt}
                                 </button>
                               ))}
                               {['CONTRACT', 'PROTOCOL'].map(opt => (
                                 <button key={opt} type="button"
                                   onClick={() => { setFirmaInput({ id: s.id, tipPlata: opt }); setFirmaValue('') }}
-                                  className={`text-xs px-2 py-0.5 rounded font-medium border transition-colors ${
-                                    opt === 'CONTRACT'
-                                      ? 'border-purple-300 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20'
-                                      : 'border-orange-300 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20'
-                                  }`}>
+                                  className={`text-xs px-2 py-0.5 rounded font-medium border transition-all ${PAYMENT_BTN[opt]}`}>
                                   {opt}
                                 </button>
                               ))}
                             </>
                           )}
                         </>
-                      )}
-                      {s.tipPlata === 'CONTRACT' && (
-                        <span className="text-xs px-2 py-0.5 rounded font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
-                          CONTRACT{s.nrFirma ? ` · ${s.nrFirma}` : ''}
-                        </span>
-                      )}
-                      {s.tipPlata === 'PROTOCOL' && (
-                        <span className="text-xs px-2 py-0.5 rounded font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
-                          PROTOCOL{s.nrFirma ? ` · ${s.nrFirma}` : ''}
-                        </span>
                       )}
                     </div>
                   </div>

@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, request, jsonify, session, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 from backend.models import User
 from backend.extensions import limiter
@@ -7,12 +7,13 @@ auth_bp = Blueprint('auth', __name__)
 
 
 @auth_bp.route('/login', methods=['POST'])
-@limiter.limit("10 per minute")
+@limiter.limit("10 per minute", exempt_when=lambda: current_app.config.get('TESTING'))
 def login():
     data = request.get_json()
     user = User.query.filter_by(username=data.get('username')).first()
     if user and user.check_password(data.get('password', '')):
         login_user(user)
+        session.permanent = True
         if user.rol == 'manager' and user.locatie_id:
             session['locatie_id'] = user.locatie_id
         else:

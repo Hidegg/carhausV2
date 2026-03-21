@@ -44,7 +44,16 @@ export default function ManagerAnalytics() {
     refetchInterval: 30_000,
   })
 
-  if (isLoading) return <div className="text-center py-20 text-gray-400">Se incarca...</div>
+  if (isLoading) return (
+    <div className="space-y-4 animate-pulse">
+      <div className="grid grid-cols-2 gap-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="card p-4"><div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3 mb-3" /><div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/2" /></div>
+        ))}
+      </div>
+      <div className="card p-4"><div className="h-40 bg-gray-200 dark:bg-gray-700 rounded" /></div>
+    </div>
+  )
   if (!data) return null
 
   // CURS = pending proxy, never real income

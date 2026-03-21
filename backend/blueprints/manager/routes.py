@@ -6,10 +6,13 @@ from collections import Counter
 
 BUCHAREST = ZoneInfo('Europe/Bucharest')
 from functools import wraps
+from sqlalchemy.orm import joinedload
 from backend.extensions import db
 from backend.models import Clienti, Servicii, PretServicii, Spalatori, Locatie
 
 manager_bp = Blueprint('manager', __name__)
+
+ALLOWED_TIP_PLATA = {'CASH', 'CARD', 'CURS', 'CONTRACT', 'PROTOCOL'}
 
 
 def get_day_window():
@@ -103,9 +106,16 @@ def add_serviciu():
         db.session.add(client)
         db.session.commit()
 
-    spalator = Spalatori.query.filter_by(numeSpalator=data.get('spalator')).first()
+    # Accept spalatori_id (preferred) or spalator name (legacy)
+    spalatori_id = data.get('spalatori_id')
+    if spalatori_id:
+        spalator = Spalatori.query.get(spalatori_id)
+    else:
+        spalator = Spalatori.query.filter_by(numeSpalator=data.get('spalator')).first()
     if not spalator:
         return jsonify({'error': 'Spalator not found'}), 400
+    if locatie_id and spalator.locatie_id != locatie_id:
+        return jsonify({'error': 'Spalator nu apartine acestei locatii'}), 400
 
     _q = Servicii.query.filter(
         db.func.date(Servicii.dataSpalare) == dataSpalare.date()
@@ -115,10 +125,16 @@ def add_serviciu():
     ultimul = _q.first()
     numarCurent = (ultimul.numarCurent + 1) if ultimul else 1
 
+    tip_plata = data.get('tipPlata', 'CASH')
+    if tip_plata not in ALLOWED_TIP_PLATA:
+        return jsonify({'error': f'Tip plata invalid: {tip_plata}'}), 400
+
     servicii_adaugate = []
     servicii_list = data.get('serviciiPrestate', [])
     if not servicii_list:
         return jsonify({'error': 'Trebuie selectat cel putin un serviciu'}), 400
+    if len(servicii_list) > 20:
+        return jsonify({'error': 'Prea multe servicii (max 20)'}), 400
 
     for serviciu_name in servicii_list:
         # Prefer location-specific price, fall back to global
@@ -143,7 +159,7 @@ def add_serviciu():
             numarCurent=numarCurent,
             pretServicii=pret,
             comisionServicii=comision,
-            tipPlata=data.get('tipPlata', 'CASH'),
+            tipPlata=tip_plata,
             nrFirma=data.get('nrFirma') or None,
             notite=data.get('notite') or None,
             clienti_id=client.id,
@@ -165,7 +181,9 @@ def dashboard():
     locatie_id = session.get('locatie_id')
     day_start, day_end = get_day_window()
 
-    q = Servicii.query.filter(
+    q = Servicii.query.options(
+        joinedload(Servicii.clienti), joinedload(Servicii.spalatori)
+    ).filter(
         Servicii.dataSpalare >= day_start,
         Servicii.dataSpalare < day_end
     )
@@ -210,7 +228,11 @@ def dashboard():
 def update_payment(service_id):
     data = request.get_json()
     s = Servicii.query.get_or_404(service_id)
-    s.tipPlata = data.get('tipPlata')
+    new_tip = data.get('tipPlata')
+    if new_tip:
+        if new_tip not in ALLOWED_TIP_PLATA:
+            return jsonify({'error': f'Tip plata invalid: {new_tip}'}), 400
+        s.tipPlata = new_tip
     if 'nrFirma' in data:
         s.nrFirma = data.get('nrFirma') or None
     db.session.commit()
@@ -262,7 +284,9 @@ def analytics():
     locatie_id = session.get('locatie_id')
     day_start, day_end = get_day_window()
 
-    q = Servicii.query.filter(
+    q = Servicii.query.options(
+        joinedload(Servicii.clienti), joinedload(Servicii.spalatori)
+    ).filter(
         Servicii.dataSpalare >= day_start,
         Servicii.dataSpalare < day_end
     )
@@ -341,8 +365,11 @@ def edit_serviciu(service_id):
         return jsonify({'error': 'Forbidden'}), 403
     data = request.get_json()
 
-    if 'spalator' in data:
-        sp = Spalatori.query.filter_by(numeSpalator=data['spalator']).first()
+    if 'spalatori_id' in data or 'spalator' in data:
+        if 'spalatori_id' in data:
+            sp = Spalatori.query.get(data['spalatori_id'])
+        else:
+            sp = Spalatori.query.filter_by(numeSpalator=data['spalator']).first()
         if not sp:
             return jsonify({'error': 'Spalator not found'}), 400
         s.spalatori_id = sp.id
@@ -369,6 +396,8 @@ def edit_serviciu(service_id):
         s.comisionServicii = comision
 
     if 'tipPlata' in data:
+        if data['tipPlata'] not in ALLOWED_TIP_PLATA:
+            return jsonify({'error': f'Tip plata invalid: {data["tipPlata"]}'}), 400
         s.tipPlata = data['tipPlata']
     if 'nrFirma' in data:
         s.nrFirma = data.get('nrFirma') or None

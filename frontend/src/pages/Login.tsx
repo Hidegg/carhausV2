@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useAuth } from '../hooks/useAuth'
 import { useNavigate } from 'react-router-dom'
+import PasswordInput from '../components/PasswordInput'
 
 export default function Login() {
   const [username, setUsername] = useState('')
@@ -61,10 +62,8 @@ export default function Login() {
             </div>
             <div>
               <label className="form-label">Parola</label>
-              <input
-                type="password" value={password} onChange={e => setPassword(e.target.value)}
-                className="form-input" required
-              />
+              <PasswordInput value={password} onChange={e => setPassword(e.target.value)}
+                className="form-input" required />
             </div>
             <button type="submit" disabled={isLoggingIn} className="btn-primary w-full py-2.5 mt-2">
               {isLoggingIn ? 'Se conecteaza...' : 'Conectare'}
@@ -72,6 +71,7 @@ export default function Login() {
           </form>
         </div>
 
+        {import.meta.env.DEV && (
         <div className="mt-4 card p-3">
           <p className="text-xs text-gray-400 text-center mb-2">Acces rapid (local)</p>
           <div className="grid grid-cols-3 gap-2">
@@ -89,6 +89,7 @@ export default function Login() {
             ))}
           </div>
         </div>
+        )}
       </motion.div>
     </div>
   )

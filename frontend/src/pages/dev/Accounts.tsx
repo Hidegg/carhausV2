@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Pencil, Trash2, X, Check } from 'lucide-react'
 import { devApi } from '../../api/client'
 import { DevAccountsResponse, DevAccount, Locatie } from '../../types'
+import PasswordInput from '../../components/PasswordInput'
 
 const ROL_BADGE: Record<string, string> = {
   dev: 'bg-brand/10 text-brand border border-brand/20',
@@ -42,7 +43,7 @@ function AccountForm({
       </div>
       <div>
         <label className="form-label">Parola {initial.username ? '(lasa gol = neschimbat)' : ''}</label>
-        <input className="form-input" type="password" value={form.password}
+        <PasswordInput className="form-input" value={form.password}
           onChange={e => set('password', e.target.value)} placeholder="••••••••" />
       </div>
       <div>

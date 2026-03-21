@@ -41,7 +41,19 @@ export default function ManagerEchipa() {
     })
   }
 
-  if (isLoading || teamsLoading) return <div className="text-center py-20 text-gray-400">Se incarca...</div>
+  if (isLoading || teamsLoading) return (
+    <div className="max-w-lg mx-auto space-y-4 animate-pulse">
+      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
+      <div className="card overflow-hidden">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex justify-between">
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 
   return (
     <div className="max-w-lg mx-auto">
@@ -60,11 +72,11 @@ export default function ManagerEchipa() {
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => toggleMutation.mutate({ id: s.id, prezentAzi: !s.prezentAzi })}
-                  className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${
+                  className={`relative inline-flex h-6 w-10 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
                     s.prezentAzi ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
                   }`}>
-                  <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
-                    s.prezentAzi ? 'translate-x-4' : 'translate-x-0'
+                  <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform ${
+                    s.prezentAzi ? 'translate-x-[22px]' : 'translate-x-[3px]'
                   }`} />
                 </button>
                 <div>
@@ -94,7 +106,7 @@ export default function ManagerEchipa() {
             placeholder="Nume spalator" className="form-input flex-1" />
           <button onClick={handleAdd} disabled={addMutation.isPending}
             className="btn-primary px-4 whitespace-nowrap">
-            {addMutation.isPending ? '...' : '+ Adauga'}
+            {addMutation.isPending ? 'Se adauga...' : '+ Adauga'}
           </button>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { adminApi } from '../../api/client'
 import { Locatie, PretServicii, ManagerUser } from '../../types'
 import { Trash2, Pencil, X, Check, Eye, EyeOff } from 'lucide-react'
+import PasswordInput from '../../components/PasswordInput'
 
 type Tab = 'locatii' | 'spalatori' | 'preturi' | 'manageri'
 
@@ -208,8 +209,8 @@ export default function AdminSettings() {
             </div>
           )}
 
-          <div className="card overflow-x-auto scrollbar-hide">
-            <table className="text-sm" style={{ tableLayout: 'fixed', width: '100%' }}>
+          <div className="card overflow-x-auto">
+            <table className="text-sm min-w-[900px]">
               <colgroup>
                 <col style={{ width: '220px' }} />
                 {['','','','','',''].map((_, i) => <col key={i} style={{ width: '110px' }} />)}
@@ -326,9 +327,9 @@ export default function AdminSettings() {
                             <input value={editMgrState.username}
                               onChange={e => setEditMgrState(s => s ? { ...s, username: e.target.value } : s)}
                               className="form-input text-sm w-36" placeholder="Username" />
-                            <input value={editMgrState.password}
+                            <PasswordInput value={editMgrState.password}
                               onChange={e => setEditMgrState(s => s ? { ...s, password: e.target.value } : s)}
-                              className="form-input text-sm w-36" placeholder="Parola noua (optional)" type="password" />
+                              className="form-input text-sm w-36" placeholder="Parola noua (optional)" />
                             <select value={editMgrState.locatie_id ?? ''}
                               onChange={e => setEditMgrState(s => s ? { ...s, locatie_id: e.target.value ? Number(e.target.value) : null } : s)}
                               className="form-input text-sm w-36">
@@ -402,8 +403,8 @@ export default function AdminSettings() {
             <div className="flex flex-wrap gap-2">
               <input value={newMgr.username} onChange={e => setNewMgr(s => ({ ...s, username: e.target.value }))}
                 placeholder="Username" className="form-input text-sm w-40" />
-              <input value={newMgr.password} onChange={e => setNewMgr(s => ({ ...s, password: e.target.value }))}
-                placeholder="Parola" type="password" className="form-input text-sm w-40" />
+              <PasswordInput value={newMgr.password} onChange={e => setNewMgr(s => ({ ...s, password: e.target.value }))}
+                placeholder="Parola" className="form-input text-sm w-40" />
               <select value={newMgr.locatie_id} onChange={e => setNewMgr(s => ({ ...s, locatie_id: e.target.value }))}
                 className="form-input text-sm w-40">
                 <option value="">Fara locatie</option>
@@ -413,7 +414,7 @@ export default function AdminSettings() {
               </select>
               <button onClick={handleAddManager} disabled={addManager.isPending}
                 className="btn-primary text-sm px-4 whitespace-nowrap">
-                {addManager.isPending ? '...' : '+ Adauga'}
+                {addManager.isPending ? 'Se adauga...' : '+ Adauga'}
               </button>
             </div>
           </div>

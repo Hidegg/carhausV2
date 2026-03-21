@@ -4,14 +4,15 @@ import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { adminApi } from '../../api/client'
 import { ReportsResponse, LocationReport } from '../../types'
+import { PAYMENT_COLORS } from '../../utils/paymentColors'
 
 function PaymentBar({ r }: { r: LocationReport }) {
   const payments = [
-    { key: 'CASH',     val: r.ziuaCurenta?.incasariTipPlata?.CASH     ?? 0, color: 'bg-green-500' },
-    { key: 'CARD',     val: r.ziuaCurenta?.incasariTipPlata?.CARD     ?? 0, color: 'bg-blue-500' },
-    { key: 'CURS',     val: r.ziuaCurenta?.incasariTipPlata?.CURS     ?? 0, color: 'bg-yellow-500' },
-    { key: 'CONTRACT', val: r.ziuaCurenta?.incasariTipPlata?.CONTRACT ?? 0, color: 'bg-purple-500' },
-    { key: 'PROTOCOL', val: r.ziuaCurenta?.incasariTipPlata?.PROTOCOL ?? 0, color: 'bg-gray-400' },
+    { key: 'CASH',     val: r.ziuaCurenta?.incasariTipPlata?.CASH     ?? 0, color: PAYMENT_COLORS.CASH.bg },
+    { key: 'CARD',     val: r.ziuaCurenta?.incasariTipPlata?.CARD     ?? 0, color: PAYMENT_COLORS.CARD.bg },
+    { key: 'CURS',     val: r.ziuaCurenta?.cursInAsteptare?.amount    ?? 0, color: PAYMENT_COLORS.CURS.bg },
+    { key: 'CONTRACT', val: r.ziuaCurenta?.incasariTipPlata?.CONTRACT ?? 0, color: PAYMENT_COLORS.CONTRACT.bg },
+    { key: 'PROTOCOL', val: r.ziuaCurenta?.incasariTipPlata?.PROTOCOL ?? 0, color: PAYMENT_COLORS.PROTOCOL.bg },
   ].filter(p => p.val > 0)
 
   const total = payments.reduce((s, p) => s + p.val, 0)
@@ -46,7 +47,23 @@ export default function AdminOverview() {
   })
   const [activeTab, setActiveTab] = useState<string>()
 
-  if (isLoading) return <div className="text-center py-20 text-gray-400">Se incarca...</div>
+  if (isLoading) return (
+    <div className="space-y-4">
+      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 animate-pulse" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="card p-4 animate-pulse">
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3 mb-3" />
+            <div className="h-7 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
+          </div>
+        ))}
+      </div>
+      <div className="card p-4 animate-pulse">
+        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-3" />
+        <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full" />
+      </div>
+    </div>
+  )
   if (!data) return null
 
   const tabs = [...data.locatii.map(l => l.numeLocatie), 'TOTAL']
@@ -90,15 +107,20 @@ export default function AdminOverview() {
       </div>
 
       {/* KPI row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }}
+          className="card p-4 flex flex-col col-span-2 bg-brand/5 dark:bg-brand/10 border-brand/20">
+          <p className="text-xs text-brand/70 uppercase tracking-wide mb-1 font-semibold">Incasari Azi</p>
+          <p className="text-3xl font-extrabold text-brand">{(az?.incasari ?? 0).toFixed(0)} RON</p>
+        </motion.div>
         {[
-          { label: 'Incasari Azi', value: `${(az?.incasari ?? 0).toFixed(0)} RON` },
           { label: 'Masini', value: az?.clientiNoi ?? 0 },
           { label: 'Servicii', value: az?.spalari ?? 0 },
           { label: 'Medie / Masina', value: `${avgAzi.toFixed(0)} RON` },
         ].map(({ label, value }, i) => (
           <motion.div key={label}
-            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: (i + 1) * 0.07 }}
             className="card p-4 flex flex-col">
             <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">{label}</p>
             <p className="text-2xl font-bold">{value}</p>

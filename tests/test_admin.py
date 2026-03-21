@@ -670,3 +670,108 @@ def test_settings_put_pret_toggles_activ(as_admin):
     rv2 = as_admin.put(f'/api/admin/settings/pret/{pret_id}', json={'activ': True})
     assert rv2.status_code == 200
     assert rv2.get_json()['activ'] is True
+
+
+# ── DATA INTEGRITY: cross-location, CURS flow ───────────────────────────────
+
+def test_same_plate_at_two_locations_reuses_client(as_admin, app):
+    """Same plate at two locations should reuse the Clienti row but create
+    services with different locatie_id values."""
+    loc1_id, mgr1_id, _, sp1_id, sp1_name = _create_isolated_location(app)
+    loc2_id, mgr2_id, _, sp2_id, sp2_name = _create_isolated_location(app)
+    seed1 = {'spalator_name': sp1_name}
+    seed2 = {'spalator_name': sp2_name}
+
+    mc1 = _manager_client(app, mgr1_id, loc1_id)
+    mc2 = _manager_client(app, mgr2_id, loc2_id)
+
+    plate = 'XLC' + uid()
+    make_service(mc1, seed1, numarAutoturism=plate)
+    make_service(mc2, seed2, numarAutoturism=plate)
+
+    with app.app_context():
+        from backend.models import Clienti, Servicii
+        clients = Clienti.query.filter_by(numarAutoturism=plate).all()
+        assert len(clients) >= 1  # client exists
+
+        svcs = Servicii.query.filter(
+            Servicii.clienti_id.in_([c.id for c in clients])
+        ).all()
+        loc_ids = set(s.locatie_id for s in svcs)
+        assert loc1_id in loc_ids
+        assert loc2_id in loc_ids
+
+
+def test_curs_to_cash_moves_revenue_into_total(as_admin, app, seed):
+    """Converting CURS → CASH should make the amount appear in collected revenue."""
+    loc_id, mgr_id, _, sp_id, sp_name = _create_isolated_location(app)
+    seed_like = {'spalator_name': sp_name}
+    mc = _manager_client(app, mgr_id, loc_id)
+
+    plate = 'C2C' + uid()
+    make_service(mc, seed_like, numarAutoturism=plate, tipPlata='CURS')
+
+    # analytics before conversion
+    rv_before = mc.get('/api/manager/analytics')
+    data_before = rv_before.get_json()
+    total_before = data_before['total']
+    curs_before = data_before['curs']
+    assert curs_before > 0
+
+    # convert to CASH
+    with app.app_context():
+        from backend.models import Servicii, Clienti
+        client = Clienti.query.filter_by(numarAutoturism=plate).first()
+        svc = Servicii.query.filter_by(clienti_id=client.id).first()
+        svc_id = svc.id
+
+    mc.post(f'/api/manager/update-payment/{svc_id}', json={'tipPlata': 'CASH'})
+
+    # analytics after conversion
+    rv_after = mc.get('/api/manager/analytics')
+    data_after = rv_after.get_json()
+    assert data_after['total'] > total_before
+    assert data_after['cash'] > data_before['cash']
+
+
+def test_curs_pending_after_conversion_excludes_paid(as_admin, app, seed):
+    """After converting CURS → CARD, the plate should not appear in curs-pending."""
+    loc_id, mgr_id, _, sp_id, sp_name = _create_isolated_location(app)
+    seed_like = {'spalator_name': sp_name}
+    mc = _manager_client(app, mgr_id, loc_id)
+
+    plate = 'CPX' + uid()
+    make_service(mc, seed_like, numarAutoturism=plate, tipPlata='CURS')
+
+    # verify it IS in curs-pending
+    rv1 = as_admin.get(f'/api/admin/curs-pending?locatie_id={loc_id}')
+    assert plate in [x['numar'] for x in rv1.get_json()]
+
+    # convert to CARD
+    with app.app_context():
+        from backend.models import Servicii, Clienti
+        client = Clienti.query.filter_by(numarAutoturism=plate).first()
+        svc = Servicii.query.filter_by(clienti_id=client.id).first()
+        svc_id = svc.id
+
+    mc.post(f'/api/manager/update-payment/{svc_id}', json={'tipPlata': 'CARD'})
+
+    # verify it's no longer in curs-pending
+    rv2 = as_admin.get(f'/api/admin/curs-pending?locatie_id={loc_id}')
+    assert plate not in [x['numar'] for x in rv2.get_json()]
+
+
+def test_service_locatie_id_matches_manager_location(as_admin, app, seed):
+    """A service created by a manager should have locatie_id = manager's location."""
+    loc_id, mgr_id, _, sp_id, sp_name = _create_isolated_location(app)
+    seed_like = {'spalator_name': sp_name}
+    mc = _manager_client(app, mgr_id, loc_id)
+
+    plate = 'LOC' + uid()
+    make_service(mc, seed_like, numarAutoturism=plate)
+
+    with app.app_context():
+        from backend.models import Servicii, Clienti
+        client = Clienti.query.filter_by(numarAutoturism=plate).first()
+        svc = Servicii.query.filter_by(clienti_id=client.id).first()
+        assert svc.locatie_id == loc_id

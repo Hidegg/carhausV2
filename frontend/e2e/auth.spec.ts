@@ -1,10 +1,5 @@
 import { test, expect } from '@playwright/test';
 
-/**
- * Helper: fill the login form and submit.
- * The Login page has `type="text"` for username and `type="password"` for password,
- * with no name attributes — we select by input type order.
- */
 async function fillLogin(page: any, username: string, password: string) {
   await page.locator('input[type="text"]').fill(username);
   await page.locator('input[type="password"]').fill(password);
@@ -24,10 +19,15 @@ test.describe('Authentication', () => {
     await expect(page).toHaveURL(/\/manager\/dashboard/, { timeout: 10000 });
   });
 
+  test('dev login redirects to /dev/overview', async ({ page }) => {
+    await page.goto('/login');
+    await fillLogin(page, 'dev', 'devpass');
+    await expect(page).toHaveURL(/\/dev\/overview/, { timeout: 10000 });
+  });
+
   test('wrong password shows error message', async ({ page }) => {
     await page.goto('/login');
     await fillLogin(page, 'admin', 'wrongpassword');
-    // Error div appears below the button when login fails
     const errorDiv = page.locator('.text-red-700, .text-red-300');
     await expect(errorDiv).toBeVisible({ timeout: 5000 });
     await expect(errorDiv).toContainText('incorecte');
@@ -38,9 +38,7 @@ test.describe('Authentication', () => {
     await fillLogin(page, 'admin', 'adminpass');
     await expect(page).toHaveURL(/\/admin\/overview/, { timeout: 10000 });
 
-    // Open sidebar via hamburger menu button
-    await page.locator('nav button').first().click();
-    // Click the logout button (has title="Logout")
+    // On desktop, sidebar is always visible — click the logout button directly
     await page.locator('button[title="Logout"]').click();
     await expect(page).toHaveURL(/\/login/, { timeout: 5000 });
   });

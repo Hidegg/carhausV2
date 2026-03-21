@@ -17,13 +17,14 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'gunicorn run:app --bind 0.0.0.0:5001 --workers 1 --timeout 60',
+    command: 'python seed_e2e.py && gunicorn run:app --bind 0.0.0.0:5001 --workers 1 --timeout 60',
     cwd: '..',
     url: 'http://localhost:5001',
     reuseExistingServer: !process.env.CI,
     env: {
       DATABASE_URL: process.env.DATABASE_URL || 'sqlite:///e2e_test.db',
       SECRET_KEY: process.env.SECRET_KEY || 'e2e-test-secret',
+      TESTING: 'true',
     },
     timeout: 30000,
   },

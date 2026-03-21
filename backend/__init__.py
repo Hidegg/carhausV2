@@ -45,6 +45,14 @@ def create_app():
         scheduler.add_job(backup_database, 'cron', day_of_week='sun', hour=3, minute=0)
         scheduler.start()
 
+    # Security response headers
+    @app.after_request
+    def security_headers(response):
+        response.headers['X-Frame-Options'] = 'DENY'
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        return response
+
     # Serve React app for all non-API routes in production
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
