@@ -41,6 +41,7 @@ with app.app_context():
     # Users — create if missing, repair hash if truncated/corrupt
     users_to_create = [
         ("admin",              "admin",   "12345678",  None),
+        ("admin2",             "admin",   "12345678",  None),
         ("dev",                "dev",     "87654321",  None),
         ("carhaus_straulesti", "manager", "password1", straulesti.id),
         ("carhaus_caranfil",   "manager", "password",  caranfil.id),

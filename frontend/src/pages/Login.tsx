@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { Moon, Sun } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useNavigate } from 'react-router-dom'
 import PasswordInput from '../components/PasswordInput'
@@ -8,8 +9,16 @@ export default function Login() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
   const { login, isLoggingIn, user } = useAuth()
   const navigate = useNavigate()
+
+  const toggleTheme = () => {
+    const next = !dark
+    setDark(next)
+    document.documentElement.classList.toggle('dark', next)
+    localStorage.setItem('theme', next ? 'dark' : 'light')
+  }
 
   useEffect(() => {
     if (user) navigate(user.rol === 'manager' ? '/manager/dashboard' : user.rol === 'dev' ? '/dev/overview' : '/admin/overview', { replace: true })
@@ -27,7 +36,11 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-950 flex items-center justify-center p-4 relative">
+      <button onClick={toggleTheme}
+        className="absolute top-4 right-4 p-2 rounded-lg text-gray-400 hover:text-brand transition-colors">
+        {dark ? <Sun size={20} /> : <Moon size={20} />}
+      </button>
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -71,25 +84,24 @@ export default function Login() {
           </form>
         </div>
 
-        {import.meta.env.DEV && (
         <div className="mt-4 card p-3">
           <p className="text-xs text-gray-400 text-center mb-2">Acces rapid (local)</p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {[
-              { username: 'admin',             password: '12345678', label: 'Admin' },
-              { username: 'carhaus_straulesti', password: 'password1', label: 'Straulesti' },
-              { username: 'carhaus_caranfil',   password: 'password',  label: 'Caranfil' },
+              { username: 'admin',             password: '12345678',  label: 'Admin 1' },
+              { username: 'admin2',            password: '12345678',  label: 'Admin 2' },
+              { username: 'carhaus_straulesti', password: 'password1', label: 'Manager 1', sub: 'Straulesti' },
+              { username: 'carhaus_caranfil',   password: 'password',  label: 'Manager 2', sub: 'Caranfil' },
             ].map(u => (
               <button key={u.username} type="button"
                 onClick={() => { setUsername(u.username); setPassword(u.password) }}
                 className="px-3 py-2 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-brand hover:text-brand transition-colors text-left">
                 <span className="font-semibold block">{u.label}</span>
-                <span className="text-gray-400">{u.username}</span>
+                <span className="text-gray-400">{'sub' in u ? (u as any).sub : u.username}</span>
               </button>
             ))}
           </div>
         </div>
-        )}
       </motion.div>
     </div>
   )
