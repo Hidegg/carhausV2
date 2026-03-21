@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, time
 from zoneinfo import ZoneInfo
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
@@ -9,6 +9,12 @@ from backend.models import Locatie, Spalatori, PretServicii, User, Servicii, Cli
 from backend.services.stats import get_location_report
 
 BUCHAREST = ZoneInfo('Europe/Bucharest')
+UTC = ZoneInfo('UTC')
+
+
+def _to_naive_utc(d):
+    """Convert a date to naive UTC datetime (midnight Bucharest → UTC)."""
+    return datetime.combine(d, time(0, 0), tzinfo=BUCHAREST).astimezone(UTC).replace(tzinfo=None)
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -129,14 +135,16 @@ def istoric():
         # ── Monthly drill-down: weeks of the month ───────────────────────────
         month_start = date(year, month, 1)
         month_end   = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+        month_start_utc = _to_naive_utc(month_start)
+        month_end_utc   = _to_naive_utc(month_end)
 
         rows = db.session.query(
             Servicii.dataSpalare,
             db.case((Servicii.tipPlata != 'CURS', Servicii.pretServicii), else_=0).label('inc'),
             Servicii.clienti_id
         ).filter(
-            Servicii.dataSpalare >= month_start,
-            Servicii.dataSpalare < month_end
+            Servicii.dataSpalare >= month_start_utc,
+            Servicii.dataSpalare < month_end_utc
         )
         if locatie_id:
             rows = rows.filter(Servicii.locatie_id == locatie_id)
@@ -145,7 +153,7 @@ def istoric():
         weeks     = _month_weeks(year, month)
         week_data = [{'incasari': 0.0, 'spalari': 0, 'clients': set()} for _ in weeks]
         for row in rows:
-            d = row.dataSpalare.date() if hasattr(row.dataSpalare, 'date') else row.dataSpalare
+            d = row.dataSpalare.replace(tzinfo=UTC).astimezone(BUCHAREST).date() if hasattr(row.dataSpalare, 'date') else row.dataSpalare
             for i, (ws, we) in enumerate(weeks):
                 if ws <= d < we:
                     week_data[i]['incasari'] += float(row.inc or 0)
@@ -173,7 +181,7 @@ def istoric():
                 'spalari':  sum(b['spalari']  for b in bars),
                 'masini':   len({r.clienti_id for r in rows}),
             },
-            'serviciiBreakdown': _svc_breakdown(locatie_id, month_start, month_end),
+            'serviciiBreakdown': _svc_breakdown(locatie_id, month_start_utc, month_end_utc),
             'locatii':           locatii_data,
             'availableYears':    available_years,
             'primaLuna':         prima_luna,
@@ -181,8 +189,8 @@ def istoric():
 
     else:
         # ── Annual view: single aggregation query for all 12 months ──────────
-        year_start = date(year, 1, 1)
-        year_end   = date(year + 1, 1, 1)
+        year_start_utc = _to_naive_utc(date(year, 1, 1))
+        year_end_utc   = _to_naive_utc(date(year + 1, 1, 1))
 
         monthly_q = db.session.query(
             extract('month', Servicii.dataSpalare).label('m'),
@@ -190,8 +198,8 @@ def istoric():
             func.count(Servicii.id),
             func.count(func.distinct(Servicii.clienti_id))
         ).filter(
-            Servicii.dataSpalare >= year_start,
-            Servicii.dataSpalare < year_end
+            Servicii.dataSpalare >= year_start_utc,
+            Servicii.dataSpalare < year_end_utc
         )
         if locatie_id:
             monthly_q = monthly_q.filter(Servicii.locatie_id == locatie_id)
@@ -219,7 +227,7 @@ def istoric():
                 'masini':     sum(b['masini']   for b in bars),
                 'lunaDeVarf': best_label,
             },
-            'serviciiBreakdown': _svc_breakdown(locatie_id, year_start, year_end),
+            'serviciiBreakdown': _svc_breakdown(locatie_id, year_start_utc, year_end_utc),
             'locatii':           locatii_data,
             'availableYears':    available_years,
             'primaLuna':         prima_luna,

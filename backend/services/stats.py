@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import func
@@ -6,12 +6,17 @@ from backend.extensions import db
 from backend.models import Servicii, Spalatori
 
 BUCHAREST = ZoneInfo('Europe/Bucharest')
+UTC = ZoneInfo('UTC')
+
+
+def _to_naive_utc(bucharest_date):
+    """Convert a Bucharest date to a naive UTC datetime (midnight Bucharest → UTC)."""
+    return datetime.combine(bucharest_date, time(0, 0), tzinfo=BUCHAREST).astimezone(UTC).replace(tzinfo=None)
 
 
 def get_date_ranges():
-    from datetime import datetime
     today = datetime.now(BUCHAREST).date()
-    return {
+    ranges = {
         'ziuaCurenta':      (today, today + timedelta(days=1)),
         'ziuaTrecuta':      (today - timedelta(days=1), today),
         'saptamanaCurenta': (today - timedelta(days=today.weekday()), today + timedelta(days=1)),
@@ -25,6 +30,8 @@ def get_date_ranges():
             today.replace(day=1)
         ),
     }
+    # Convert Bucharest date boundaries to naive UTC datetimes
+    return {k: (_to_naive_utc(s), _to_naive_utc(e)) for k, (s, e) in ranges.items()}
 
 
 REAL_PAYMENT_TYPES = {'CASH', 'CARD', 'CONTRACT', 'PROTOCOL'}

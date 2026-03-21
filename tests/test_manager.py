@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from tests.conftest import uid, make_service
 
 BUCHAREST = ZoneInfo('Europe/Bucharest')
+UTC = ZoneInfo('UTC')
 
 
 def now_iso():
@@ -827,13 +828,15 @@ def test_get_day_window_before_4am_returns_previous_day():
         mock_dt.combine = datetime.combine
         day_start, day_end = get_day_window()
 
-    # Base date should be March 20, not March 21
-    assert day_start == datetime.combine(
+    # Returns naive UTC — 4am Bucharest = 1am or 2am UTC depending on DST
+    expected_start = datetime.combine(
         fake_345am.date() - timedelta(days=1), time(4, 0), tzinfo=BUCHAREST
-    )
-    assert day_end == datetime.combine(
+    ).astimezone(UTC).replace(tzinfo=None)
+    expected_end = datetime.combine(
         fake_345am.date(), time(4, 0), tzinfo=BUCHAREST
-    )
+    ).astimezone(UTC).replace(tzinfo=None)
+    assert day_start == expected_start
+    assert day_end == expected_end
 
 
 def test_get_day_window_after_4am_returns_current_day():
@@ -846,12 +849,14 @@ def test_get_day_window_after_4am_returns_current_day():
         mock_dt.combine = datetime.combine
         day_start, day_end = get_day_window()
 
-    assert day_start == datetime.combine(
+    expected_start = datetime.combine(
         fake_415am.date(), time(4, 0), tzinfo=BUCHAREST
-    )
-    assert day_end == datetime.combine(
+    ).astimezone(UTC).replace(tzinfo=None)
+    expected_end = datetime.combine(
         fake_415am.date() + timedelta(days=1), time(4, 0), tzinfo=BUCHAREST
-    )
+    ).astimezone(UTC).replace(tzinfo=None)
+    assert day_start == expected_start
+    assert day_end == expected_end
 
 
 def test_service_at_345am_appears_in_previous_day_dashboard(app, as_manager, seed):

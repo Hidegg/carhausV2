@@ -16,14 +16,17 @@ ALLOWED_TIP_PLATA = {'CASH', 'CARD', 'CURS', 'CONTRACT', 'PROTOCOL'}
 
 
 def get_day_window():
-    """Returns (day_start, day_end) with a 4am cutoff in Bucharest time."""
+    """Returns (day_start, day_end) as naive UTC datetimes with a 4am Bucharest cutoff."""
     now = datetime.now(BUCHAREST)
     if now.hour < 4:
         base = now.date() - timedelta(days=1)
     else:
         base = now.date()
-    day_start = datetime.combine(base, time(4, 0), tzinfo=BUCHAREST)
-    day_end = day_start + timedelta(days=1)
+    day_start_buc = datetime.combine(base, time(4, 0), tzinfo=BUCHAREST)
+    day_end_buc = day_start_buc + timedelta(days=1)
+    # Convert to naive UTC for DB comparison (column is timestamp without tz)
+    day_start = day_start_buc.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
+    day_end = day_end_buc.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
     return day_start, day_end
 
 
@@ -82,7 +85,7 @@ def add_serviciu():
     locatie_id = session.get('locatie_id')
 
     try:
-        dataSpalare = datetime.fromisoformat(data['date']).replace(tzinfo=BUCHAREST)
+        dataSpalare = datetime.fromisoformat(data['date']).replace(tzinfo=BUCHAREST).astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
     except (KeyError, ValueError) as e:
         return jsonify({'error': f'Invalid date: {e}'}), 400
 
@@ -117,8 +120,10 @@ def add_serviciu():
     if locatie_id and spalator.locatie_id != locatie_id:
         return jsonify({'error': 'Spalator nu apartine acestei locatii'}), 400
 
+    _day_start, _day_end = get_day_window()
     _q = Servicii.query.filter(
-        db.func.date(Servicii.dataSpalare) == dataSpalare.date()
+        Servicii.dataSpalare >= _day_start,
+        Servicii.dataSpalare < _day_end
     ).order_by(Servicii.numarCurent.desc())
     if db.engine.dialect.name != 'sqlite':
         _q = _q.with_for_update()
@@ -317,7 +322,7 @@ def analytics():
             'serviciu': s.serviciiPrestate,
             'masina': s.clienti.numarAutoturism,
             'pret': s.pretServicii or 0,
-            'ora': s.dataSpalare.astimezone(BUCHAREST).strftime('%H:%M'),
+            'ora': s.dataSpalare.replace(tzinfo=ZoneInfo('UTC')).astimezone(BUCHAREST).strftime('%H:%M'),
         })
 
     servicii_map = {}

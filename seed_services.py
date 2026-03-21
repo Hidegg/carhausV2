@@ -137,7 +137,7 @@ with app.app_context():
             service_names = SERVICES_BY_TYPE[combo_key]
 
             h, m = random_hour()
-            ts = datetime.combine(date_, time(h, m), tzinfo=BUCHAREST)
+            ts = datetime.combine(date_, time(h, m), tzinfo=BUCHAREST).astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
 
             # Sequential number for the day
             same_day_count = sum(1 for r in records if r.dataSpalare.date() == date_ and r.locatie_id == loc.id)
