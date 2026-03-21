@@ -220,6 +220,22 @@ All significant test gaps have been filled. The remaining "NOT TESTED" items in 
 
 **Final counts: 139 pytest + 39 Playwright = 178 automated tests, all passing.**
 
+### Post-Phase 2 Polish
+
+| Change | Description |
+|--------|-------------|
+| Timezone fix | All datetimes stored as naive UTC; queries convert Bucharest boundaries to UTC. Fixes empty daily reports on Railway (UTC server). |
+| Password visibility | Eye toggle on all password inputs (Login, Dev Accounts, Admin Settings). Reusable `PasswordInput` component. |
+| Form: personal data toggle | On/off switch for client contact section. OFF = skip contact + GDPR. ON = email or telefon required + GDPR/terms checkboxes. |
+| Payment button consistency | Unified color map (CASH=green, CARD=blue, CURS=yellow, CONTRACT=purple, PROTOCOL=orange) across dashboard badges and CURS conversion buttons. Active glow on press for touch feedback. |
+| Settings price table scroll | Removed fixed table layout, added `min-w-[900px]` for horizontal scroll on mobile. |
+| Echipa toggle alignment | Fixed pill switch sizing (`h-6 w-10`, `items-center`) and circle positioning. |
+| Quick-login buttons | Admin 1, Admin 2, Manager 1 (Straulesti), Manager 2 (Caranfil) on login page. |
+| Login theme toggle | Sun/moon button in top-right corner of login page. |
+| Second admin account | `admin2` added to initialize.py for the two owners. |
+| Deploy.py SQLite fix | Column guards skipped on fresh DB (PostgreSQL-only syntax). |
+| Seed re-run support | `RESEED=1` env var forces seed_services.py to clear and re-generate data. |
+
 ---
 
 ## PHASE 3: VPS Deployment — NOT STARTED
