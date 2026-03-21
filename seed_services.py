@@ -61,11 +61,13 @@ def day_start(date_):
 
 
 with app.app_context():
-    if Servicii.query.first():
-        print("Services already seeded, skipping.")
+    import os
+    if Servicii.query.first() and not os.environ.get('RESEED'):
+        print("Services already seeded, skipping. Set RESEED=1 to force.")
         exit(0)
 
-    # Clear any partial seed data (clients created but services never committed)
+    # Clear existing data for clean re-seed
+    Servicii.query.delete()
     Clienti.query.delete()
     db.session.commit()
 
