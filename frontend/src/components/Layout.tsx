@@ -25,12 +25,6 @@ export default function Layout() {
     <div className={`h-dvh flex flex-col overflow-hidden${user?.rol === 'manager' ? ' manager-theme' : user?.rol === 'dev' ? ' dev-theme' : ''}`}>
       <Navbar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} dark={dark} setDark={setDark} />
       <div className="flex flex-1 overflow-hidden relative">
-        {/* Desktop sidebar — always visible on md+ */}
-        <aside className="hidden md:block shrink-0 h-full">
-          <Sidebar onClose={() => {}} />
-        </aside>
-
-        {/* Mobile sidebar overlay */}
         <AnimatePresence>
           {sidebarOpen && (
             <>
@@ -38,14 +32,14 @@ export default function Layout() {
                 key="backdrop"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
-                className="md:hidden fixed top-14 inset-x-0 bottom-0 bg-black/40 z-30"
+                className="fixed top-14 inset-x-0 bottom-0 bg-black/40 z-30"
                 onClick={() => setSidebarOpen(false)}
               />
               <motion.div
                 key="sidebar"
                 initial={{ x: -220 }} animate={{ x: 0 }} exit={{ x: -220 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                className="md:hidden fixed top-14 left-0 z-40 h-[calc(100dvh-3.5rem)]"
+                className="fixed top-14 left-0 z-40 h-[calc(100dvh-3.5rem)]"
               >
                 <Sidebar onClose={() => setSidebarOpen(false)} />
               </motion.div>
