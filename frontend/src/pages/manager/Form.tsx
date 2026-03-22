@@ -27,9 +27,11 @@ function relativaRo(isoString: string): string {
 
 const MILESTONES = [10, 25, 50, 100, 200, 500]
 
+const stripDiacritics = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
 const brandLogoByName: Record<string, string> = {}
 for (const b of brandsData as Array<{ name: string; slug: string; image?: { thumb?: string } }>) {
-  if (b.image?.thumb) brandLogoByName[b.name.toLowerCase()] = b.image.thumb
+  if (b.image?.thumb) brandLogoByName[stripDiacritics(b.name)] = b.image.thumb
 }
 
 function getBucharestNow() {
@@ -263,8 +265,8 @@ export default function ManagerForm() {
                 className="form-input w-full flex flex-col items-center justify-center gap-1 py-3 h-20">
                 {marca ? (
                   <>
-                    {brandLogoByName[marca.toLowerCase()] ? (
-                      <img src={brandLogoByName[marca.toLowerCase()]} alt={marca}
+                    {brandLogoByName[stripDiacritics(marca)] ? (
+                      <img src={brandLogoByName[stripDiacritics(marca)]} alt={marca}
                         className="w-1/2 max-h-10 object-contain" />
                     ) : (
                       <span className="text-2xl font-bold text-gray-300 dark:text-gray-600">{marca.charAt(0)}</span>

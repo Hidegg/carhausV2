@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { managerApi } from '../../api/client'
 import { ClientCard, Serviciu, PretServicii, Spalator } from '../../types'
-import { Car, Pencil, X, Search, Plus, ChevronDown } from 'lucide-react'
+import { Car, Pencil, X, Search, Plus, ChevronDown, ChevronUp } from 'lucide-react'
 
 const PAYMENT_BADGE: Record<string, string> = {
   CASH: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
@@ -22,9 +22,11 @@ const PAYMENT_BTN: Record<string, string> = {
 import { Link } from 'react-router-dom'
 import brandsData from '../../data/carBrands.json'
 
+const stripDiacritics = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
 const brandLogoByName: Record<string, string> = {}
 for (const b of brandsData as Array<{ name: string; image?: { thumb?: string } }>) {
-  if (b.image?.thumb) brandLogoByName[b.name.toLowerCase()] = b.image.thumb
+  if (b.image?.thumb) brandLogoByName[stripDiacritics(b.name)] = b.image.thumb
 }
 
 interface EditModal {
@@ -147,7 +149,18 @@ export default function ManagerDashboard() {
   const [search, setSearch] = useState('')
   const [editModal, setEditModal] = useState<EditModal | null>(null)
   const [cursOpen, setCursOpen] = useState(true)
+  const [cursPayOpen, setCursPayOpen] = useState<number | null>(null)
   const qc = useQueryClient()
+
+  // Close CURS dropdown on outside click
+  useEffect(() => {
+    if (cursPayOpen === null) return
+    const handler = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest('.relative')) setCursPayOpen(null)
+    }
+    document.addEventListener('click', handler)
+    return () => document.removeEventListener('click', handler)
+  }, [cursPayOpen])
 
   const { data: cards = [], isLoading } = useQuery<ClientCard[]>({
     queryKey: ['manager', 'dashboard'],
@@ -224,7 +237,7 @@ export default function ManagerDashboard() {
         <div className="flex">
           {/* Logo column */}
           <div className="w-20 shrink-0 flex items-center justify-center p-1.5 border-r border-gray-100 dark:border-gray-800">
-            {brandLogoByName[card.client.marcaAutoturism?.toLowerCase()] ? (
+            {brandLogoByName[stripDiacritics(card.client.marcaAutoturism ?? '')] ? (
               <img
                 src={brandLogoByName[card.client.marcaAutoturism.toLowerCase()]}
                 alt={card.client.marcaAutoturism}
@@ -241,7 +254,7 @@ export default function ManagerDashboard() {
           {/* Services column */}
           <div className="flex-1 divide-y divide-gray-100 dark:divide-gray-800">
             {card.servicii.map(s => (
-              <div key={s.id} className="px-4 pt-2 pb-0">
+              <div key={s.id} className="px-4 py-3">
                 <div className="flex justify-between items-start">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
@@ -264,48 +277,54 @@ export default function ManagerDashboard() {
                         </span>
                       )}
                       {s.tipPlata === 'CURS' && (
-                        <>
-                          <span className={`text-xs px-2 py-0.5 rounded font-medium ${PAYMENT_BADGE.CURS}`}>CURS</span>
-                          {firmaInput?.id === s.id ? (
-                            <div className="flex items-center gap-1">
-                              <input autoFocus value={firmaValue} onChange={e => setFirmaValue(e.target.value)}
-                                placeholder="Nr. Firma"
-                                className="text-xs px-2 py-0.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#1f1f1f] w-28 outline-none focus:border-brand"
-                                onKeyDown={e => {
-                                  if (e.key === 'Enter' && firmaValue.trim()) {
-                                    updatePayment.mutate({ id: s.id, tipPlata: firmaInput.tipPlata, nrFirma: firmaValue.trim() })
-                                    setFirmaInput(null); setFirmaValue('')
-                                  }
-                                  if (e.key === 'Escape') { setFirmaInput(null); setFirmaValue('') }
-                                }} />
-                              <button type="button" onClick={() => {
-                                if (firmaValue.trim()) {
-                                  updatePayment.mutate({ id: s.id, tipPlata: firmaInput.tipPlata, nrFirma: firmaValue.trim() })
-                                  setFirmaInput(null); setFirmaValue('')
-                                }
-                              }} className="text-xs px-2 py-0.5 rounded bg-brand text-white font-medium">OK</button>
-                              <button type="button" onClick={() => { setFirmaInput(null); setFirmaValue('') }}
-                                className="text-xs text-gray-400 hover:text-gray-600">✕</button>
+                        <div className="relative">
+                          <button type="button" onClick={() => setCursPayOpen(cursPayOpen === s.id ? null : s.id)}
+                            className={`text-xs px-2 py-0.5 rounded font-medium inline-flex items-center gap-1 ${PAYMENT_BADGE.CURS}`}>
+                            CURS
+                            <ChevronDown size={10} className={`transition-transform ${cursPayOpen === s.id ? 'rotate-180' : ''}`} />
+                          </button>
+                          {cursPayOpen === s.id && (
+                            <div className="absolute right-0 top-full mt-1 z-20 bg-white dark:bg-[#2a2a2a] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-2 flex flex-col gap-1 min-w-[120px]">
+                              {firmaInput?.id === s.id ? (
+                                <div className="flex items-center gap-1">
+                                  <input autoFocus value={firmaValue} onChange={e => setFirmaValue(e.target.value)}
+                                    placeholder="Nr. Firma"
+                                    className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#1f1f1f] w-24 outline-none focus:border-brand"
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter' && firmaValue.trim()) {
+                                        updatePayment.mutate({ id: s.id, tipPlata: firmaInput.tipPlata, nrFirma: firmaValue.trim() })
+                                        setFirmaInput(null); setFirmaValue(''); setCursPayOpen(null)
+                                      }
+                                      if (e.key === 'Escape') { setFirmaInput(null); setFirmaValue('') }
+                                    }} />
+                                  <button type="button" onClick={() => {
+                                    if (firmaValue.trim()) {
+                                      updatePayment.mutate({ id: s.id, tipPlata: firmaInput.tipPlata, nrFirma: firmaValue.trim() })
+                                      setFirmaInput(null); setFirmaValue(''); setCursPayOpen(null)
+                                    }
+                                  }} className="text-xs px-2 py-1 rounded bg-brand text-white font-medium">OK</button>
+                                </div>
+                              ) : (
+                                <>
+                                  {['CASH', 'CARD'].map(opt => (
+                                    <button key={opt} type="button"
+                                      onClick={() => { updatePayment.mutate({ id: s.id, tipPlata: opt }); setCursPayOpen(null) }}
+                                      className={`text-xs px-3 py-1.5 rounded font-medium border transition-all text-left ${PAYMENT_BTN[opt]}`}>
+                                      {opt}
+                                    </button>
+                                  ))}
+                                  {['CONTRACT', 'PROTOCOL'].map(opt => (
+                                    <button key={opt} type="button"
+                                      onClick={() => { setFirmaInput({ id: s.id, tipPlata: opt }); setFirmaValue('') }}
+                                      className={`text-xs px-3 py-1.5 rounded font-medium border transition-all text-left ${PAYMENT_BTN[opt]}`}>
+                                      {opt}
+                                    </button>
+                                  ))}
+                                </>
+                              )}
                             </div>
-                          ) : (
-                            <>
-                              {['CASH', 'CARD'].map(opt => (
-                                <button key={opt} type="button"
-                                  onClick={() => updatePayment.mutate({ id: s.id, tipPlata: opt })}
-                                  className={`text-xs px-2 py-0.5 rounded font-medium border transition-all ${PAYMENT_BTN[opt]}`}>
-                                  {opt}
-                                </button>
-                              ))}
-                              {['CONTRACT', 'PROTOCOL'].map(opt => (
-                                <button key={opt} type="button"
-                                  onClick={() => { setFirmaInput({ id: s.id, tipPlata: opt }); setFirmaValue('') }}
-                                  className={`text-xs px-2 py-0.5 rounded font-medium border transition-all ${PAYMENT_BTN[opt]}`}>
-                                  {opt}
-                                </button>
-                              ))}
-                            </>
                           )}
-                        </>
+                        </div>
                       )}
                     </div>
                   </div>
