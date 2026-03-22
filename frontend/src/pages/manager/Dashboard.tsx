@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { managerApi } from '../../api/client'
 import { ClientCard, Serviciu, PretServicii, Spalator } from '../../types'
-import { Car, Pencil, X, Search, Plus } from 'lucide-react'
+import { Car, Pencil, X, Search, Plus, ChevronDown } from 'lucide-react'
 
 const PAYMENT_BADGE: Record<string, string> = {
   CASH: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
@@ -146,6 +146,7 @@ export default function ManagerDashboard() {
   const [firmaValue, setFirmaValue] = useState('')
   const [search, setSearch] = useState('')
   const [editModal, setEditModal] = useState<EditModal | null>(null)
+  const [cursOpen, setCursOpen] = useState(true)
   const qc = useQueryClient()
 
   const { data: cards = [], isLoading } = useQuery<ClientCard[]>({
@@ -338,13 +339,20 @@ export default function ManagerDashboard() {
 
       {cursCards.length > 0 && (
         <div className="mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs font-semibold uppercase tracking-wide text-yellow-600 dark:text-yellow-400">CURS Neplatit</span>
+          <button
+            type="button"
+            onClick={() => setCursOpen(!cursOpen)}
+            className="flex items-center gap-2 mb-3 group"
+          >
+            <ChevronDown size={14} className={`text-yellow-600 dark:text-yellow-400 transition-transform ${cursOpen ? '' : '-rotate-90'}`} />
+            <span className="text-xs font-semibold uppercase tracking-wide text-yellow-600 dark:text-yellow-400 group-active:opacity-70">CURS Neplatit</span>
             <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-2 py-0.5 rounded-full font-medium">{cursCards.length}</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {cursCards.map((card, i) => renderCard(card, i))}
-          </div>
+          </button>
+          {cursOpen && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+              {cursCards.map((card, i) => renderCard(card, i))}
+            </div>
+          )}
         </div>
       )}
 
@@ -355,7 +363,7 @@ export default function ManagerDashboard() {
               <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Platite</span>
             </div>
           )}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
             {paidCards.map((card, i) => renderCard(card, cursCards.length + i))}
           </div>
         </div>
