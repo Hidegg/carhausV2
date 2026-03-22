@@ -236,12 +236,12 @@ export default function ManagerDashboard() {
         </div>
         <div className="flex">
           {/* Logo column */}
-          <div className="w-20 shrink-0 flex items-center justify-center p-1.5 border-r border-gray-100 dark:border-gray-800">
+          <div className="w-24 shrink-0 flex items-center justify-center border-r border-gray-100 dark:border-gray-800">
             {brandLogoByName[stripDiacritics(card.client.marcaAutoturism ?? '')] ? (
               <img
-                src={brandLogoByName[card.client.marcaAutoturism.toLowerCase()]}
+                src={brandLogoByName[stripDiacritics(card.client.marcaAutoturism ?? '')]}
                 alt={card.client.marcaAutoturism}
-                className="w-12 h-12 object-contain"
+                className="w-14 h-14 object-contain"
                 onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
               />
             ) : (
@@ -254,7 +254,7 @@ export default function ManagerDashboard() {
           {/* Services column */}
           <div className="flex-1 divide-y divide-gray-100 dark:divide-gray-800">
             {card.servicii.map(s => (
-              <div key={s.id} className="px-4 py-3">
+              <div key={s.id} className="px-4 py-4">
                 <div className="flex justify-between items-start">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
