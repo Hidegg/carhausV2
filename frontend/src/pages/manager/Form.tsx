@@ -48,6 +48,7 @@ export default function ManagerForm() {
   const [numar, setNumar] = useState('')
   const [tip, setTip] = useState('AUTOTURISM')
   const [marca, setMarca] = useState('')
+  const [nume, setNume] = useState('')
   const [email, setEmail] = useState('')
   const [telefon, setTelefon] = useState('')
   const [clientExistent, setClientExistent] = useState(false)
@@ -87,7 +88,7 @@ export default function ManagerForm() {
     mutationFn: managerApi.addServicii,
     onSuccess: () => {
       setSuccess(true)
-      setNumar(''); setTip('AUTOTURISM'); setMarca(''); setEmail(''); setTelefon('')
+      setNumar(''); setTip('AUTOTURISM'); setMarca(''); setNume(''); setEmail(''); setTelefon('')
       setSelectedServices([]); setClientExistent(false); setClientContext(null)
       setGdpr(false); setNewsletter(false); setTermeni(false)
       setSpalator(''); setSpalatorId(null)
@@ -122,7 +123,7 @@ export default function ManagerForm() {
       const data = await managerApi.getClient(numar.toUpperCase())
       if (data.tipAutoturism) {
         setTip(data.tipAutoturism); setMarca(data.marcaAutoturism)
-        setEmail(data.emailClient); setTelefon(data.telefonClient)
+        setNume(data.numeClient); setEmail(data.emailClient); setTelefon(data.telefonClient)
         setClientExistent(true)
         setClientContext({
           vizite: data.vizite,
@@ -163,6 +164,7 @@ export default function ManagerForm() {
       numarAutoturism: numar.toUpperCase(),
       tipAutoturism: tip,
       marcaAutoturism: marca,
+      numeClient: nume || null,
       emailClient: email || null,
       telefonClient: telefon || null,
       gdprAcceptat: gdpr,
@@ -293,6 +295,11 @@ export default function ManagerForm() {
               </button>
               {contactOpen && (
                 <div className="px-4 pb-4 pt-3 space-y-4 bg-white dark:bg-[#1a1a1a]">
+                  <div>
+                    <label className="form-label">Nume</label>
+                    <input type="text" value={nume} onChange={e => setNume(e.target.value)}
+                      className="form-input" placeholder="Nume client" />
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="form-label">Email</label>
@@ -326,12 +333,22 @@ export default function ManagerForm() {
               )}
             </div>
           ) : (
-            (email || telefon) && (
-              <div className="text-xs text-gray-500 dark:text-gray-400 px-1">
-                {email && <span className="mr-3">✉ {email}</span>}
-                {telefon && <span>☏ {telefon}</span>}
-              </div>
-            )
+            <div className="space-y-2 px-1">
+              {!nume && (
+                <div>
+                  <label className="form-label">Nume</label>
+                  <input type="text" value={nume} onChange={e => setNume(e.target.value)}
+                    className="form-input" placeholder="Adaugă nume client" />
+                </div>
+              )}
+              {(nume || email || telefon) && (
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  {nume && <span className="mr-3">{nume}</span>}
+                  {email && <span className="mr-3">✉ {email}</span>}
+                  {telefon && <span>☏ {telefon}</span>}
+                </div>
+              )}
+            </div>
           )}
 
           {/* Tip Plata */}

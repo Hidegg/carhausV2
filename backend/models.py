@@ -42,6 +42,7 @@ class Clienti(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     numarAutoturism = db.Column(db.String(20), unique=True, nullable=False)
+    numeClient = db.Column(db.String(100), nullable=True)
     emailClient = db.Column(db.String(100), nullable=True)
     telefonClient = db.Column(db.String(15), nullable=True)
     tipAutoturism = db.Column(db.String(50))

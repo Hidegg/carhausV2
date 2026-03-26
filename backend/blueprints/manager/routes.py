@@ -97,6 +97,7 @@ def add_serviciu():
     if not client:
         client = Clienti(
             numarAutoturism=numar,
+            numeClient=data.get('numeClient') or None,
             emailClient=data.get('emailClient') or None,
             telefonClient=data.get('telefonClient') or None,
             tipAutoturism=data.get('tipAutoturism', '').upper(),
@@ -108,6 +109,12 @@ def add_serviciu():
         )
         db.session.add(client)
         db.session.commit()
+    else:
+        # Update name if provided and client doesn't have one yet
+        incoming_name = data.get('numeClient') or None
+        if incoming_name and not client.numeClient:
+            client.numeClient = incoming_name
+            db.session.commit()
 
     # Accept spalatori_id (preferred) or spalator name (legacy)
     spalatori_id = data.get('spalatori_id')
@@ -473,6 +480,7 @@ def get_client(numar):
         return jsonify({
             'tipAutoturism': client.tipAutoturism or '',
             'marcaAutoturism': client.marcaAutoturism or '',
+            'numeClient': client.numeClient or '',
             'emailClient': client.emailClient or '',
             'telefonClient': client.telefonClient or '',
             'vizite': vizite,
@@ -481,6 +489,6 @@ def get_client(numar):
             'tipPlataFrecvent': tip_plata_frecvent,
         })
     return jsonify({
-        'tipAutoturism': '', 'marcaAutoturism': '', 'emailClient': '', 'telefonClient': '',
+        'tipAutoturism': '', 'marcaAutoturism': '', 'numeClient': '', 'emailClient': '', 'telefonClient': '',
         'vizite': 0, 'ultimaVizita': None, 'serviciuFrecvent': None, 'tipPlataFrecvent': None,
     })
