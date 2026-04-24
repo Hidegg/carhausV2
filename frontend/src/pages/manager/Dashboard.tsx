@@ -113,25 +113,7 @@ function EditModal({ modal, onClose, formData }: {
             rows={2} placeholder="Observatii..." className="form-input resize-none" />
         </div>
 
-        <div className="flex justify-between pt-2">
-          {confirmDelete ? (
-            <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">
-              <span className="text-xs font-medium text-red-600 dark:text-red-400">Confirmi stergerea?</span>
-              <button onClick={() => deleteMutation.mutate()}
-                disabled={deleteMutation.isPending}
-                className="px-3 py-1.5 text-xs rounded bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors">
-                {deleteMutation.isPending ? 'Se sterge...' : 'Da, sterge'}
-              </button>
-              <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                Anuleaza
-              </button>
-            </div>
-          ) : (
-            <button onClick={() => setConfirmDelete(true)}
-              className="px-3 py-1.5 text-xs rounded border border-red-300 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium">
-              Sterge
-            </button>
-          )}
+        <div className="flex justify-end pt-2">
           <button onClick={() => editMutation.mutate()}
             disabled={editMutation.isPending}
             className="btn-primary px-5 py-1.5 text-sm">
@@ -217,7 +199,7 @@ export default function ManagerDashboard() {
       <motion.div key={card.client.numarAutoturism}
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
         transition={{ delay: i * 0.05 }}
-        className={`card overflow-hidden ${hasCurs ? 'border-l-4 border-l-yellow-400' : ''}`}>
+        className={`card overflow-visible ${hasCurs ? 'border-l-4 border-l-yellow-400' : ''}`}>
         <div className="bg-brand px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 font-bold text-white text-sm tracking-wide min-w-0">
             <span className="shrink-0">{card.client.numarAutoturism}</span>
@@ -261,7 +243,7 @@ export default function ManagerDashboard() {
                       <div className="text-sm font-semibold">{s.serviciiPrestate}</div>
                       <button type="button"
                         onClick={() => setEditModal({ serviciu: s, plate: card.client.numarAutoturism })}
-                        className="text-gray-300 hover:text-brand transition-colors shrink-0">
+                        className="text-gray-400 hover:text-brand transition-colors shrink-0">
                         <Pencil size={12} />
                       </button>
                     </div>
