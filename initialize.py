@@ -1,13 +1,17 @@
 """
-Run once to seed the database with locations, users, washers, and prices.
-Each resource is checked independently so partial previous runs are repaired.
+Run once on a fresh deployment to seed initial admin accounts and services.
 Usage: python initialize.py
 """
 from backend import create_app
 from backend.extensions import db
-from backend.models import Locatie, User, Spalatori, PretServicii
+from backend.models import User, PretServicii
 
 app = create_app()
+
+USERS = [
+    ("admin",  "admin", "12345678"),
+    ("admin2", "admin", "12345678"),
+]
 
 PRICES = [
     ("SPALARE STANDARD",  119.0, 129.0, 129.0, 20.0, 20.0, 20.0),
@@ -23,66 +27,26 @@ PRICES = [
 ]
 
 with app.app_context():
-    # Locations — idempotent per name
-    straulesti = Locatie.query.filter_by(numeLocatie="STRAULESTI").first()
-    if not straulesti:
-        straulesti = Locatie(numeLocatie="STRAULESTI")
-        db.session.add(straulesti)
-        db.session.commit()
-        print("Created location: STRAULESTI")
-
-    caranfil = Locatie.query.filter_by(numeLocatie="CARANFIL").first()
-    if not caranfil:
-        caranfil = Locatie(numeLocatie="CARANFIL")
-        db.session.add(caranfil)
-        db.session.commit()
-        print("Created location: CARANFIL")
-
-    # Users — create if missing, repair hash if truncated/corrupt
-    users_to_create = [
-        ("admin",              "admin",   "12345678",  None),
-        ("admin2",             "admin",   "12345678",  None),
-        ("dev",                "dev",     "87654321",  None),
-        ("carhaus_straulesti", "manager", "password1", straulesti.id),
-        ("carhaus_caranfil",   "manager", "password",  caranfil.id),
-    ]
-    for username, rol, password, locatie_id in users_to_create:
+    for username, rol, password in USERS:
         u = User.query.filter_by(username=username).first()
         if not u:
-            u = User(username=username, rol=rol, locatie_id=locatie_id)
+            u = User(username=username, rol=rol)
             u.set_password(password)
             db.session.add(u)
             print(f"Created user: {username}")
         elif not u.check_password(password):
-            # Hash is corrupt (e.g. was truncated when column was VARCHAR(128))
             u.set_password(password)
             print(f"Repaired password hash for: {username}")
     db.session.commit()
 
-    # Washers — idempotent
-    spalatori_straulesti = ["Marin", "Alin", "Ionut", "Adrian", "Alex"]
-    spalatori_caranfil   = ["Chinezul", "Toni", "Cristian", "Eugen", "Cezar", "Gheorghita"]
-
-    for name in spalatori_straulesti:
-        if not Spalatori.query.filter_by(numeSpalator=name, locatie_id=straulesti.id).first():
-            db.session.add(Spalatori(numeSpalator=name, locatie_id=straulesti.id))
-            print(f"Created spalator: {name}")
-    for name in spalatori_caranfil:
-        if not Spalatori.query.filter_by(numeSpalator=name, locatie_id=caranfil.id).first():
-            db.session.add(Spalatori(numeSpalator=name, locatie_id=caranfil.id))
-            print(f"Created spalator: {name}")
-    db.session.commit()
-
-    # Prices — idempotent
-    for row in PRICES:
-        name, pa, ps, pv, ca, cs, cv = row
+    for name, pa, ps, pv, ca, cs, cv in PRICES:
         if not PretServicii.query.filter_by(serviciiPrestate=name).first():
             db.session.add(PretServicii(
                 serviciiPrestate=name,
                 pretAutoturism=pa, pretSUV=ps, pretVan=pv,
                 comisionAutoturism=ca, comisionSUV=cs, comisionVan=cv
             ))
-            print(f"Created price: {name}")
+            print(f"Created service: {name}")
     db.session.commit()
 
-    print("Database initialization complete.")
+    print("Done.")
