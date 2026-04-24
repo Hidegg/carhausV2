@@ -1,0 +1,20 @@
+LEFT TO DO
+==========
+
+PROD FIXES (cherry-pick from main when tested):
+- Soft-delete washers with history (backend + migration) — main has it, not in prod yet
+- Inline delete confirm on Echipa page — main has it, not in prod yet
+- Investigate 400 error on service submission on live
+
+LIVE SERVER SETUP:
+- Set dev user password manually on server (flask shell)
+- Create real manager accounts via dev panel (proper usernames/passwords)
+- Change admin/admin2 passwords from default (12345678)
+- Add IP allowlist for /dev routes in nginx
+
+SECURITY:
+- Enable Cloudflare orange cloud proxy after SSL confirmed working
+- IP allowlist for /dev in nginx config
+
+DEPLOY SCRIPT:
+- Update /var/www/deploy.sh to pull from prod branch instead of main
