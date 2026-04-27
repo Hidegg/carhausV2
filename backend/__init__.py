@@ -5,7 +5,9 @@ from backend.extensions import db, login_manager, migrate, cors, limiter
 
 
 def create_app():
+    from werkzeug.middleware.proxy_fix import ProxyFix
     app = Flask(__name__)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
     app.config.from_object(Config)
 
     db.init_app(app)
@@ -35,15 +37,6 @@ def create_app():
     app.register_blueprint(manager_bp, url_prefix='/api/manager')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
     app.register_blueprint(dev_bp, url_prefix='/api/dev')
-
-    # Weekly backup scheduler (Sunday 03:00) — SQLite only
-    db_url = app.config.get('SQLALCHEMY_DATABASE_URI', '')
-    if db_url.startswith('sqlite') and not app.config.get('TESTING'):
-        from apscheduler.schedulers.background import BackgroundScheduler
-        from backup import backup_database
-        scheduler = BackgroundScheduler()
-        scheduler.add_job(backup_database, 'cron', day_of_week='sun', hour=3, minute=0)
-        scheduler.start()
 
     # Security response headers
     @app.after_request

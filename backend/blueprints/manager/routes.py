@@ -54,13 +54,13 @@ def form_data():
     else:
         preturi = PretServicii.query.filter_by(activ=True).all()
 
-    # Workers: only present ones; fall back to all if none are present
+    # Workers: active + present; fall back to all active if none present
     if locatie_id:
-        spalatori = Spalatori.query.filter_by(locatie_id=locatie_id, prezentAzi=True).all()
+        spalatori = Spalatori.query.filter_by(locatie_id=locatie_id, activ=True, prezentAzi=True).all()
         if not spalatori:
-            spalatori = Spalatori.query.filter_by(locatie_id=locatie_id).all()
+            spalatori = Spalatori.query.filter_by(locatie_id=locatie_id, activ=True).all()
     else:
-        spalatori = Spalatori.query.all()
+        spalatori = Spalatori.query.filter_by(activ=True).all()
 
     return jsonify({
         'preturi': [{
@@ -256,7 +256,7 @@ def update_payment(service_id):
 @manager_required
 def echipa_get():
     locatie_id = session.get('locatie_id')
-    spalatori = Spalatori.query.filter_by(locatie_id=locatie_id).all() if locatie_id else []
+    spalatori = Spalatori.query.filter_by(locatie_id=locatie_id, activ=True).all() if locatie_id else []
     return jsonify([{'id': s.id, 'numeSpalator': s.numeSpalator, 'prezentAzi': s.prezentAzi} for s in spalatori])
 
 
@@ -282,11 +282,16 @@ def echipa_add():
 def echipa_delete(id):
     locatie_id = session.get('locatie_id')
     sp = Spalatori.query.get_or_404(id)
-    if sp.locatie_id != locatie_id:
+    if locatie_id and sp.locatie_id != locatie_id:
         return jsonify({'error': 'Forbidden'}), 403
+    has_history = db.session.query(Servicii.id).filter_by(spalatori_id=sp.id).first() is not None
+    if has_history:
+        sp.activ = False
+        db.session.commit()
+        return jsonify({'ok': True, 'archived': True})
     db.session.delete(sp)
     db.session.commit()
-    return jsonify({'ok': True})
+    return jsonify({'ok': True, 'archived': False})
 
 
 @manager_bp.route('/analytics')
@@ -466,9 +471,16 @@ def echipa_toggle(id):
 @login_required
 @manager_required
 def get_client(numar):
-    client = Clienti.query.filter_by(numarAutoturism=numar.upper()).first()
+    locatie_id = session.get('locatie_id')
+    q = Clienti.query.filter_by(numarAutoturism=numar.upper())
+    if locatie_id:
+        q = q.filter(Clienti.locatie_id == locatie_id)
+    client = q.first()
     if client:
-        servicii_list = Servicii.query.filter_by(clienti_id=client.id).all()
+        servicii_q = Servicii.query.filter_by(clienti_id=client.id)
+        if locatie_id:
+            servicii_q = servicii_q.filter(Servicii.locatie_id == locatie_id)
+        servicii_list = servicii_q.all()
         vizite = len(servicii_list)
         ultima_vizita = None
         serviciu_frecvent = None
