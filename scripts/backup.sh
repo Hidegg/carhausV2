@@ -51,9 +51,9 @@ fi
 
 echo "Backup written: $OUTFILE"
 
-# Off-site sync (copyto uploads a single file without listing — works with write-only keys)
+# Off-site sync (rcat streams stdin — works with write-only keys, no listing needed)
 if command -v rclone &>/dev/null; then
-    rclone copyto "$OUTFILE" "$RCLONE_REMOTE/$(basename $OUTFILE)" || fail "rclone sync failed"
+    rclone rcat "b2:carhaus-vps/$(basename $OUTFILE)" < "$OUTFILE" || fail "rclone sync failed"
 fi
 
 # Ping success
