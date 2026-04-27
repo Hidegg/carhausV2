@@ -11,7 +11,7 @@ BACKUP_DIR="/var/backups/carhaus"
 DAILY_DIR="$BACKUP_DIR/daily"
 DATE=$(date +%Y-%m-%d)
 HC_URL="${HEALTHCHECKS_URL:-}"   # set in /var/www/carhausV2/.env or systemd EnvironmentFile
-RCLONE_REMOTE="${RCLONE_REMOTE:-b2:carhaus-backups/daily}"
+RCLONE_REMOTE="${RCLONE_REMOTE:-b2:carhaus-vps/daily}"
 
 # Load app env so DATABASE_URL is available
 if [ -f "$APP_DIR/.env" ]; then
