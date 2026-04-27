@@ -1,0 +1,47 @@
+server {
+    server_name carhausapp.com www.carhausapp.com;
+
+    root /var/www/carhausV2/frontend/dist;
+    index index.html;
+
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: https://raw.githubusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'sha256-yazAQyP879JqqHKDHeJ3ayyAFnhEUncLXZNGBJx5z50='; connect-src 'self'; frame-ancestors 'none'" always;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/carhausapp.com/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/carhausapp.com/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+server {
+    if ($host = www.carhausapp.com) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+    if ($host = carhausapp.com) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+    listen 80;
+    server_name carhausapp.com www.carhausapp.com;
+    return 404; # managed by Certbot
+
+    location /dev {
+        allow 81.196.27.56;
+        deny all;
+        try_files $uri $uri/ /index.html;
+    }
+}
