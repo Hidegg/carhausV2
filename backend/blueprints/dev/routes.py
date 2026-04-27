@@ -179,6 +179,8 @@ def account_add():
 
     if not username or not password:
         return jsonify({'error': 'Username si parola sunt obligatorii'}), 400
+    if len(password) < 8:
+        return jsonify({'error': 'Parola trebuie sa aiba cel putin 8 caractere'}), 400
     if rol not in ['admin', 'manager', 'dev']:
         return jsonify({'error': 'Rol invalid'}), 400
     if User.query.filter_by(username=username).first():
@@ -207,7 +209,10 @@ def account_edit(id):
             return jsonify({'error': 'Username deja existent'}), 409
         u.username = new_username
     if data.get('password'):
-        u.set_password(data['password'].strip())
+        new_pw = data['password'].strip()
+        if len(new_pw) < 8:
+            return jsonify({'error': 'Parola trebuie sa aiba cel putin 8 caractere'}), 400
+        u.set_password(new_pw)
     if 'rol' in data and data['rol'] in ['admin', 'manager', 'dev']:
         u.rol = data['rol']
     if 'locatie_id' in data:

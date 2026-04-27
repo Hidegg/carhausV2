@@ -4,13 +4,16 @@ Usage: python initialize.py
 """
 from backend import create_app
 from backend.extensions import db
-from backend.models import User, PretServicii
+from backend.models import User, PretServicii, Locatie
 
 app = create_app()
 
 USERS = [
-    ("admin",  "admin", "12345678"),
-    ("admin2", "admin", "12345678"),
+    ("admin",    "admin",   "12345678", None),
+    ("admin2",   "admin",   "12345678", None),
+    ("dev",      "dev",     "CHANGE_ME", None),
+    ("manager1", "manager", "pass1",    "STRAULESTI"),
+    ("manager2", "manager", "pass2",    "CARANFIL"),
 ]
 
 PRICES = [
@@ -27,16 +30,25 @@ PRICES = [
 ]
 
 with app.app_context():
-    for username, rol, password in USERS:
+    # Locations
+    locations = {}
+    for name in ["STRAULESTI", "CARANFIL"]:
+        loc = Locatie.query.filter_by(numeLocatie=name).first()
+        if not loc:
+            loc = Locatie(numeLocatie=name)
+            db.session.add(loc)
+            db.session.commit()
+            print(f"Created location: {name}")
+        locations[name] = loc
+
+    for username, rol, password, locatie_name in USERS:
+        locatie_id = locations[locatie_name].id if locatie_name else None
         u = User.query.filter_by(username=username).first()
         if not u:
-            u = User(username=username, rol=rol)
+            u = User(username=username, rol=rol, locatie_id=locatie_id)
             u.set_password(password)
             db.session.add(u)
             print(f"Created user: {username}")
-        elif not u.check_password(password):
-            u.set_password(password)
-            print(f"Repaired password hash for: {username}")
     db.session.commit()
 
     for name, pa, ps, pv, ca, cs, cv in PRICES:

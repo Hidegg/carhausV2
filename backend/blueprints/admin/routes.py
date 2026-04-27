@@ -392,7 +392,7 @@ def settings():
         'locatii': [{
             'id': l.id,
             'numeLocatie': l.numeLocatie,
-            'spalatori': [{'id': s.id, 'numeSpalator': s.numeSpalator} for s in l.spalatori]
+            'spalatori': [{'id': s.id, 'numeSpalator': s.numeSpalator} for s in l.spalatori if s.activ]
         } for l in locatii],
         'preturi': [{
             'id': p.id, 'serviciiPrestate': p.serviciiPrestate,
@@ -460,9 +460,15 @@ def spalator_edit(id):
 @login_required
 @admin_required
 def spalator_delete(id):
-    db.session.delete(Spalatori.query.get_or_404(id))
+    sp = Spalatori.query.get_or_404(id)
+    has_history = db.session.query(Servicii.id).filter_by(spalatori_id=sp.id).first() is not None
+    if has_history:
+        sp.activ = False
+        db.session.commit()
+        return jsonify({'ok': True, 'archived': True})
+    db.session.delete(sp)
     db.session.commit()
-    return jsonify({'ok': True})
+    return jsonify({'ok': True, 'archived': False})
 
 
 @admin_bp.route('/settings/preturi', methods=['PUT'])
@@ -561,6 +567,8 @@ def manager_add():
     locatie_id = data.get('locatie_id')
     if not username or not password:
         return jsonify({'error': 'username si parola obligatorii'}), 400
+    if len(password) < 8:
+        return jsonify({'error': 'Parola trebuie sa aiba cel putin 8 caractere'}), 400
     if User.query.filter_by(username=username).first():
         return jsonify({'error': 'Username deja existent'}), 409
     u = User(username=username, rol='manager', locatie_id=locatie_id or None)
@@ -584,7 +592,10 @@ def manager_edit(id):
             return jsonify({'error': 'Username deja existent'}), 409
         u.username = new_username
     if data.get('password'):
-        u.set_password(data['password'].strip())
+        new_pw = data['password'].strip()
+        if len(new_pw) < 8:
+            return jsonify({'error': 'Parola trebuie sa aiba cel putin 8 caractere'}), 400
+        u.set_password(new_pw)
     if 'locatie_id' in data:
         u.locatie_id = data['locatie_id'] or None
     db.session.commit()
