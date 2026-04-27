@@ -51,11 +51,9 @@ fi
 
 echo "Backup written: $OUTFILE"
 
-# Off-site sync
+# Off-site sync (copyto uploads a single file without listing — works with write-only keys)
 if command -v rclone &>/dev/null; then
-    rclone copy "$DAILY_DIR/" "$RCLONE_REMOTE/" --min-age 0s || fail "rclone sync failed"
-    # Prune: keep 30 daily files (covers GFS manually; adjust as needed)
-    rclone delete "$RCLONE_REMOTE/" --min-age 31d || true
+    rclone copyto "$OUTFILE" "$RCLONE_REMOTE/$(basename $OUTFILE)" || fail "rclone sync failed"
 fi
 
 # Ping success
