@@ -65,6 +65,7 @@ class Spalatori(db.Model):
     numeSpalator = db.Column(db.String(50), nullable=False)
     locatie_id = db.Column(db.Integer, db.ForeignKey('locatie.id'), nullable=False)
     prezentAzi = db.Column(db.Boolean, nullable=False, default=True, server_default='1')
+    activ = db.Column(db.Boolean, nullable=False, default=True, server_default='1')
 
     def __repr__(self):
         return f'<Spalatori {self.numeSpalator}>'
