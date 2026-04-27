@@ -37,6 +37,7 @@ with app.app_context():
                 "ALTER TABLE servicii ADD COLUMN IF NOT EXISTS notite VARCHAR(500)",
                 # spalatori
                 "ALTER TABLE spalatori ADD COLUMN IF NOT EXISTS \"prezentAzi\" BOOLEAN NOT NULL DEFAULT TRUE",
+                "ALTER TABLE spalatori ADD COLUMN IF NOT EXISTS activ BOOLEAN NOT NULL DEFAULT TRUE",
                 # clienti
                 "ALTER TABLE clienti ADD COLUMN IF NOT EXISTS \"numeClient\" VARCHAR(100)",
                 "ALTER TABLE clienti ADD COLUMN IF NOT EXISTS \"gdprAcceptat\" BOOLEAN NOT NULL DEFAULT FALSE",

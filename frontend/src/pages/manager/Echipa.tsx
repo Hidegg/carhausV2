@@ -23,7 +23,11 @@ export default function ManagerEchipa() {
   })
 
   const addMutation = useMutation({ mutationFn: managerApi.addSpalator, onSuccess: () => { inv(); qc.invalidateQueries({ queryKey: ['echipa'] }) } })
-  const deleteMutation = useMutation({ mutationFn: managerApi.deleteSpalator, onSuccess: () => { inv(); qc.invalidateQueries({ queryKey: ['echipa'] }) } })
+  const deleteMutation = useMutation({
+    mutationFn: managerApi.deleteSpalator,
+    onSuccess: () => { inv(); qc.invalidateQueries({ queryKey: ['echipa'] }) },
+    onError: (e: unknown) => setError((e as { response?: { data?: { error?: string } } }).response?.data?.error ?? 'Eroare la stergere'),
+  })
   const toggleMutation = useMutation({
     mutationFn: ({ id, prezentAzi }: { id: number; prezentAzi: boolean }) => managerApi.toggleSpalator(id, prezentAzi),
     onSuccess: () => { inv(); qc.invalidateQueries({ queryKey: ['echipa'] }) },
@@ -31,6 +35,7 @@ export default function ManagerEchipa() {
 
   const [name, setName] = useState('')
   const [error, setError] = useState('')
+  const [confirmId, setConfirmId] = useState<number | null>(null)
 
   const handleAdd = () => {
     setError('')
@@ -88,10 +93,19 @@ export default function ManagerEchipa() {
                   </span>
                 </div>
               </div>
-              <button onClick={() => confirm(`Stergi ${s.numeSpalator}?`) && deleteMutation.mutate(s.id)}
-                className="text-red-400 hover:text-red-600 transition-colors">
-                <Trash2 size={15} />
-              </button>
+              {confirmId === s.id ? (
+                <div className="flex items-center gap-1">
+                  <button onClick={() => { deleteMutation.mutate(s.id); setConfirmId(null) }}
+                    className="text-xs px-2 py-1 rounded bg-red-500 text-white font-medium">Da</button>
+                  <button onClick={() => setConfirmId(null)}
+                    className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-500">Nu</button>
+                </div>
+              ) : (
+                <button onClick={() => setConfirmId(s.id)}
+                  className="text-red-400 hover:text-red-600 transition-colors">
+                  <Trash2 size={15} />
+                </button>
+              )}
             </motion.div>
           ))}
         </div>
