@@ -51,11 +51,9 @@ fi
 
 echo "Backup written: $OUTFILE"
 
-# Off-site sync
+# Off-site sync (rcat streams stdin — works with write-only keys, no listing needed)
 if command -v rclone &>/dev/null; then
-    rclone copy "$DAILY_DIR/" "$RCLONE_REMOTE/" --min-age 0s || fail "rclone sync failed"
-    # Prune: keep 30 daily files (covers GFS manually; adjust as needed)
-    rclone delete "$RCLONE_REMOTE/" --min-age 31d || true
+    rclone rcat "b2:carhaus-vps/$(basename $OUTFILE)" < "$OUTFILE" || fail "rclone sync failed"
 fi
 
 # Ping success
