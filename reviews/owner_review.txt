@@ -1,0 +1,262 @@
+CARHAUS V2 — OWNER REVIEW
+Written from the perspective of a 10+ year carwash operator
+Date: March 2026
+==========================================================================
+
+I've been running carwashes for over a decade. I've used spreadsheets, I've
+used generic POS systems that were built for restaurants and shoehorned into
+a carwash context, I've used paper logs, and I've even had a custom Access
+database built by a guy who disappeared six months later. I know exactly what
+a carwash operation needs because I've lived the frustration of not having it.
+
+So here's my honest take on Carhaus V2.
+
+--------------------------------------------------------------------------
+THE CORE LOOP — WHAT ACTUALLY MATTERS EVERY DAY
+--------------------------------------------------------------------------
+
+The daily workflow is right. You come in, you mark who's present, a car rolls
+up, you punch in the plate, pick the service, pick the washer, take the money,
+done. The fact that the form remembers returning customers by plate and
+auto-fills their car type and brand — that's the one thing that saves the most
+time at a busy location. A regular showing up at 8am on a Tuesday doesn't want
+to wait while someone types their details again. That autocomplete is not a nice
+to have, it's essential, and it's here.
+
+The 4am day boundary is something most software developers would never think of
+but every carwash operator will immediately understand. We don't stop at
+midnight. A crew finishing a late detail job at 1am shouldn't close out the
+previous day's numbers — they're still on the same shift. Someone who actually
+understands the business built that feature.
+
+The multi-location support is solid. If you're running two or three sites
+(which is the only way this business scales), you need one place to see
+everything. The admin overview with totals per location side by side is
+something I'd genuinely use every morning before I even get in the car.
+
+--------------------------------------------------------------------------
+REVENUE AND PAYMENT HANDLING — MOSTLY GOOD, ONE FRUSTRATION
+--------------------------------------------------------------------------
+
+CASH, CARD, CONTRACT, PROTOCOL — those four cover about 95% of a Romanian
+carwash's reality. The CONTRACT and PROTOCOL distinction matters more than it
+might seem: fleet contracts (companies that bring their cars regularly at a
+negotiated rate) are different from protocol accounts (partner arrangements
+with hotels, dealerships, etc.) and keeping them separate in your revenue
+breakdown helps you understand which B2B relationships are actually pulling
+weight.
+
+CURS (pending/deferred payment) is the right call for that grey zone where a
+regular customer says "put it on my tab" or a company sends their invoice
+weekly. The fact that it's tracked separately and there's a dedicated screen
+for it is good. What's frustrating is there's no alert or escalation when a
+CURS invoice ages past a certain point. Right now you have to remember to look
+at that screen. Unpaid invoices should be chasing you, not the other way
+around. After a certain number of days — say 30 — I want a flag, ideally a
+message to my phone.
+
+--------------------------------------------------------------------------
+WORKERS AND COMMISSIONS — THE RIGHT FOUNDATION, MISSING THE SECOND FLOOR
+--------------------------------------------------------------------------
+
+Tracking who washed which car and what commission they earned per service is
+the foundation of every performance conversation I've ever had with a washer.
+"Here's what you did this week, here's what you earned" — that's how you
+motivate good workers and identify the ones coasting. The per-service
+commission structure (different rates for AUTOTURISM, SUV, VAN) is exactly
+how real carwash commission agreements work.
+
+The presence toggle is fine as a daily "who showed up" marker, but it's one
+small step from scheduling. What I actually need is to know in advance who's
+coming in on Saturday, because Saturday is my busiest day and if I have three
+people rostered and only two show up, that's a problem I want to see before
+it happens, not after. There's no scheduling here. That's a real gap.
+
+Bigger issue: there's no way to print or export a worker's monthly earnings
+summary. At the end of the month when I'm calculating what I owe everyone,
+I need a document. Right now I'd have to screenshot the screen or do the math
+myself. This needs a simple export — even a PDF with the worker's name, the
+period, the services done, and the total commission. It doesn't have to be
+fancy. It just has to exist.
+
+--------------------------------------------------------------------------
+REPORTING — STRONG WHERE IT MATTERS
+--------------------------------------------------------------------------
+
+The historical drill-down (annual → monthly → weekly) is genuinely useful.
+Most carwash software gives you a date range filter and calls it "reporting."
+This actually lets you understand your own patterns. You can look at a slow
+month and drill into which week was the problem and whether it was weather,
+staffing, or just a bad stretch.
+
+The service breakdown by type is the thing I'd actually use to make pricing
+decisions. If SPALARE TAPITERIE (upholstery) makes up 3% of services but 15%
+of revenue, I want to know that and I want to push it. That data is in here.
+
+What's missing is any way to compare location performance directly over a
+shared time period. Right now I can see each location's numbers and mentally
+do the comparison. I want to see "Straulesti vs. Caranfil, last 90 days" in
+one chart. Two locations running the same brand should be benchmarkable
+against each other.
+
+No export to Excel or CSV anywhere. That's a hard stop for any owner who
+also has an accountant. My accountant doesn't log into apps — she works with
+files. A simple CSV export on any report table would solve this immediately.
+
+--------------------------------------------------------------------------
+CLIENT DATABASE — GDPR IS THERE, BUT THE DATABASE IS UNDERUSED
+--------------------------------------------------------------------------
+
+The client database captures plate, brand, type, phone, email, and consent
+fields. The consent tracking (GDPR, newsletter) is the legally correct thing
+to do in Romania, and I'm glad it's in there — one audit notice because
+you can't demonstrate consent is expensive. That box is checked.
+
+But the database is barely being used as a business tool. I have a client who
+has been in 47 times and spent over 3,000 RON with me, and the app has no
+awareness of that relationship. No loyalty tracking. No way to flag VIP clients.
+No way to send a message to clients who opted in to the newsletter. The data
+is collected and then sits there. That's wasted potential.
+
+The client detail page (full service history per plate) is useful for disputes
+— "when did you last bring this car in, what was done" — but there's no
+segmentation, no revenue tier, no visit frequency bucket. Even basic grouping
+(frequent / occasional / lapsed) would make the database actionable.
+
+No ability to add a note to a client. Sometimes a customer has a specific
+preference ("always use the soft cloth on my hood"), or there's a billing
+arrangement I need to remember, or they're a difficult customer I want to flag.
+A free-text note field per client would cost almost nothing to build and I'd
+use it constantly.
+
+--------------------------------------------------------------------------
+THE SETTINGS AND PRICING MODULE — WORKS, BUT RIGID
+--------------------------------------------------------------------------
+
+Prices are organized by service type and vehicle class (AUTOTURISM, SUV, VAN).
+That's the right structure. Location-specific price overrides are also right —
+my two locations are in different neighborhoods and the market rate is different
+at each one. That's handled.
+
+What's not handled: time-based pricing. If I want to run a "Monday discount"
+or a "weekday morning special," there's no mechanism for it. I'd have to
+manually change the prices on Monday morning and change them back Tuesday.
+That's how mistakes get made. Even a simple "this price applies on these days"
+would be a meaningful upgrade.
+
+Also: there's no way to see a price history. If a price was changed three
+months ago and I want to know what it was before, there's no record. For a
+business that does contract pricing with companies, that audit trail matters.
+
+The "ALTE SERVICII" (other services) catch-all with a zero price is clever as
+an escape hatch, but it means anything unusual ends up as undescribed revenue
+with no breakdown. You lose data quality every time someone uses that bucket.
+Even requiring a short description when ALTE SERVICII is selected would help.
+
+--------------------------------------------------------------------------
+WHAT IS COMPLETELY MISSING
+--------------------------------------------------------------------------
+
+1. INVOICING
+   This is the biggest gap by a significant margin. Every B2B customer (fleet
+   contracts, protocol accounts, corporate clients) needs an invoice. Right
+   now there's nothing. No invoice template, no invoice number series, no PDF
+   generation, no VAT calculation. I cannot legally request payment from a
+   company without an invoice. This needs to exist before this software can
+   be the only tool on a B2B-heavy location.
+
+2. END-OF-DAY CASH RECONCILIATION
+   When a manager closes out at the end of the day, there should be a
+   reconciliation step: "the system says you collected X RON in cash today,
+   count the drawer and confirm." Right now the system records payments but
+   doesn't close a shift. There's no daily close, no float management, no
+   variance tracking. Every carwash I've run has had a cash discrepancy at
+   some point. You need a paper trail.
+
+3. SHIFT CLOSE / MANAGER SIGN-OFF
+   Related to the above: a manager should be able to "close the day" with a
+   timestamp and their name attached. This creates accountability. Right now
+   there's no concept of a closed day — theoretically someone could add a
+   service from three weeks ago. There should be a lock once a day is signed
+   off.
+
+4. NOTIFICATIONS
+   No SMS, no push notification, no email alert of any kind. I want to know
+   when daily revenue hits a threshold (good day — celebrate it). I want to
+   know if a manager hasn't logged a single service by 10am on a Saturday
+   (something is wrong). I want my CURS invoices to remind me they're aging.
+   Notifications are how a management app becomes a management tool instead
+   of just a ledger.
+
+5. WORKER PAYOUT EXPORT
+   As mentioned above: a printable monthly earnings summary per worker. This
+   is not optional if you're running payroll.
+
+6. OFFLINE MODE
+   Carwash locations have had internet outages. If the internet is down and
+   the manager can't pull up the app, do they go back to paper? The business
+   doesn't stop because the router's having a bad day. Some level of offline
+   capability (even just the form, with sync when connection returns) would
+   make this tool viable as the single system of record.
+
+7. MINIMUM VIABLE LOYALTY
+   Nothing complex. Just a counter. "This client has visited X times. After
+   visit 10, offer them a free interior service." Even a simple punch-card
+   style counter that managers can see on the plate lookup would keep customers
+   coming back and justify collecting all this client data.
+
+--------------------------------------------------------------------------
+WHAT WORKS REALLY WELL (AND SHOULD NEVER BE BROKEN)
+--------------------------------------------------------------------------
+
+— The plate autocomplete with car info pre-fill. Fast, accurate, essential.
+— The 4am day boundary. Whoever built this knows carwash operations.
+— The CURS payment type and its dedicated tracking screen.
+— Per-service, per-vehicle-class commission structure.
+— Location-specific price overrides.
+— The annual → monthly → weekly historical drill-down.
+— The GDPR consent fields built into the service form (not bolted on).
+— The role separation (manager sees only their location, admin sees all).
+— The admin overview with all locations in one view.
+— The multi-service entry per car on the same form submission.
+
+--------------------------------------------------------------------------
+OVERALL VERDICT
+--------------------------------------------------------------------------
+
+Carhaus V2 is a real carwash tool, not a generic business app with a
+carwash skin on it. The daily workflow is right. The financial categories
+are right. The worker commission model is right. The architecture (multi-
+location, role-based) is right. Whoever built this either ran a carwash or
+spent serious time in one.
+
+For a single-location, cash-heavy, B2C operation, this is close to complete.
+You could run a location on this today and cover 80% of what you need.
+
+For a multi-location, B2B-active operation (contract clients, fleet accounts,
+corporate protocols), the invoicing gap is a blocker. You can't run that
+business without invoices. Everything else is a quality-of-life improvement;
+invoicing is a legal and financial requirement.
+
+Priority order for what to build next, from a pure operator standpoint:
+
+  1. Invoice generation (PDF, with VAT, with invoice series) — BLOCKER for B2B
+  2. End-of-day cash reconciliation and shift close — accountability gap
+  3. Worker monthly earnings export (PDF/CSV) — payroll requirement
+  4. CSV/Excel export on all report tables — accountant requirement
+  5. Aging alerts for CURS invoices — money recovery
+  6. Client notes field — daily operational need
+  7. Basic loyalty counter — retention
+  8. Shift scheduling — staffing visibility
+  9. Time-based pricing — promotional flexibility
+  10. Location comparison charts — multi-site management
+
+If I were evaluating this as a software purchase for my operation, I'd buy it
+today for the B2C side and wait for invoicing before fully migrating my
+contract clients off whatever I'm currently using. That's not a dismissal —
+that's a genuine compliment. Most software in this space doesn't even get the
+daily workflow right.
+
+==========================================================================
+END OF REVIEW
+==========================================================================

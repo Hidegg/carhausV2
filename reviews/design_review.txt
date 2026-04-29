@@ -1,0 +1,347 @@
+CARHAUS V2 — FRONTEND DESIGN REVIEW
+====================================
+Date: 2026-03-20
+Reviewer: Senior Frontend Developer
+
+This review is written from the perspective of someone who has shipped hundreds of
+production interfaces across SaaS dashboards, POS systems, field ops tools, and mobile
+management apps — all categories this product straddles. The goal is to be useful, not
+to flatter. Every critique below has a concrete fix direction.
+
+OVERALL VERDICT
+---------------
+CarHaus V2 is a solid, functional internal tool. The tech choices are appropriate, the
+code is clean, and the role-based theming is a genuinely good idea. The app works. But
+"works" and "well-designed" are different bars. Right now the UI sits at the level of
+"competent Tailwind dashboard" — clean defaults, correct structure, no catastrophic
+failures. The gap between this and a polished product comes down to ~10 specific
+decisions, all fixable.
+
+Score: 6.5 / 10
+
+
+WHAT IS GENUINELY GOOD
+-----------------------
+
+1. ROLE-BASED CSS THEMING
+   Using CSS custom properties (--color-brand) switched by a class on the root div
+   is the right architecture. It's lean, zero-JS, and produces a genuinely useful
+   visual differentiation between roles (red=manager, blue=admin, green=dev). This
+   is something many teams get wrong — they hardcode role colors everywhere and end
+   up with unmaintainable spaghetti. Here it's done correctly.
+
+2. PAYMENT TYPE COLOR SYSTEM
+   CASH=green, CARD=blue, CURS=yellow, CONTRACT=purple, PROTOCOL=orange. Five distinct
+   visual identities for the most business-critical data point in the app. This is
+   smart domain-specific design — the colors don't just look nice, they carry meaning
+   that operators learn quickly. The badge treatment (light bg + dark text) reads well
+   on both light and dark.
+
+3. THE MANAGER DASHBOARD CARD LAYOUT
+   Plate + brand logo left column + service rows right column is an efficient information
+   architecture for a busy tablet screen. The brand header bar carrying the plate number
+   prominently in monospace gives it an "ID badge" quality that's appropriate. The CURS
+   left-border yellow indicator is subtle but correct — it communicates urgency without
+   screaming.
+
+4. FRAMER MOTION IS USED WITH RESTRAINT
+   The animations are functional (staggered card entrance, modal scale, sidebar spring)
+   rather than decorative. This is the right call for an ops tool. Users opening this
+   app 40 times a day don't want a theater of transitions — they want snappy, readable,
+   and responsive. The current approach is appropriate.
+
+5. DARK MODE ARCHITECTURE
+   Class-based dark mode with localStorage persistence is correctly implemented. The
+   decision to use custom hex values (#161616, #1f1f1f) for dark backgrounds instead of
+   Tailwind's gray-900/gray-950 shows intentionality — someone thought about this. The
+   dark/light toggle in the navbar where the user actually needs it is the right placement.
+
+6. MOBILE-FIRST FOR THE RIGHT REASONS
+   The decision to build mobile-first because managers use tablets and admins use phones
+   is not a default assumption — it's the correct answer for the actual users. The layout
+   respects this. Forms are thumb-friendly, grids collapse correctly, overflow-x-auto on
+   tables is present where needed.
+
+
+PROBLEMS — RANKED BY IMPACT
+-----------------------------
+
+CRITICAL
+
+P1. THE NAVBAR COMMUNICATES NOTHING
+    The navbar is: [hamburger] [CARHAUS] [moon icon].
+    That's it. Every page in the app has this exact same navbar. There's no page title,
+    no breadcrumb, no "you are here" signal. An admin opening the app on a phone sees
+    "CARHAUS" in the header and then needs to mentally reconstruct their location from
+    the h2 tag inside the scrollable main area.
+
+    This is a real problem for the mobile admin user. After navigating away from a page
+    and returning, or after switching between Clienti → Istoric → Overview, the navbar
+    offers zero orientation. The h2 page titles ("Raport Zilnic", "Clienti", "Istoric")
+    are great but they're inside the scrollable content area — if you've scrolled down
+    even 100px, they're gone.
+
+    Fix: Put the current page title in the navbar, either replacing the center "CARHAUS"
+    wordmark or adding it as a subtitle line below. Keep CARHAUS only on the login screen
+    where it has actual brand purpose.
+
+P2. NO BRAND IDENTITY BEYOND A WORDMARK
+    "CARHAUS" in `font-bold tracking-widest text-brand` is not a logo. It is bold text
+    with letter spacing. There's nothing wrong with it as a wordmark but it has zero
+    visual personality. Combined with the fact that Inter is a completely neutral,
+    utilitarian typeface, the brand identity of this app is "default Tailwind project."
+
+    Car wash businesses often have identity — a spray icon, water droplets, a circular
+    badge, bold automotive typography. This app could be a dentist scheduling tool or a
+    car wash tool and you'd know the difference only from reading the Romanian labels.
+
+    A single, well-designed icon (even a simple SVG — a car with a droplet, a wash brush
+    circle, anything with visual character) placed left of the wordmark on the login
+    screen and in the navbar would cost 2 hours and dramatically elevate the perceived
+    quality. The login screen especially — it's the first thing every user sees every
+    shift — deserves more than centered text + a card.
+
+P3. NO PERSISTENT NAVIGATION ON DESKTOP/TABLET
+    The sidebar is 100% overlay-only. On every viewport size, navigation is:
+    tap hamburger → see menu → tap link → menu closes.
+    Every navigation action is a minimum of 2 taps.
+
+    For a manager on a tablet who switches between Form → Dashboard → Analytics →
+    Echipa dozens of times per shift, this is real friction. Desktop/tablet users
+    (768px+) should see a persistent left sidebar. The architecture already has the
+    sidebar component and the w-56 dimensions — it just needs a media query to make
+    it persistent at md: breakpoints, with the main content shifting right to accommodate.
+
+    The current implementation treats a 10" tablet the same as a 375px phone.
+    That is wrong.
+
+P4. KPI CARDS LACK VISUAL HIERARCHY
+    The admin Overview page has 4 KPI cards: Incasari Azi, Masini, Servicii, Medie/Masina.
+    All four cards are identical in size, typography, and visual weight:
+      - text-xs uppercase gray label on top
+      - text-2xl font-bold value below
+
+    These metrics are not equal. "Incasari Azi" (today's revenue) is the single most
+    important number on the page — it's what the admin opens the app to check. It should
+    be visually dominant: larger type, more prominent card, maybe a color accent. Instead
+    it sits in a 2x2 grid indistinguishable from the wash count.
+
+    Fix: Make the primary metric (revenue) span full width or at minimum twice the visual
+    size of the supporting metrics. A common pattern is one hero stat with three smaller
+    supporting stats below it. "300 RON" at text-4xl with a brand color tint is scannable
+    in < 0.5 seconds. The current layout requires reading all four labels to know which
+    number is revenue.
+
+
+HIGH PRIORITY
+
+P5. THE PAYMENT BREAKDOWN BAR IS TOO SMALL
+    The PaymentBar component — probably the most analytically rich element in the admin
+    view — is rendered as a `h-2` rounded-full pill. That's 8px tall. The visual weight
+    of this bar communicates "minor detail" when the information it carries is critical
+    business data. A manager glancing at the screen cannot distinguish CASH vs CARD split
+    at 8px.
+
+    The legend below it (text-xs items with 2px color dots) requires close reading.
+    Payment split deserves a taller bar (h-4 or h-6), larger value labels, and ideally
+    the RON amount shown inside or adjacent to each segment at larger sizes.
+
+P6. DARK MODE CARD CONTRAST IS TOO LOW
+    Body: #161616 (gray-900 equivalent)
+    Card: #1f1f1f
+    Delta: ~9 hex points of brightness difference.
+
+    In practice, cards are nearly invisible against the body background in dark mode.
+    The design system relies on the border (border-gray-800) to delineate cards, but a
+    1px gray border on a dark background is very subtle. Cards visually float off the
+    surface rather than sitting on it.
+
+    Fix: Increase card background to #252525–#2a2a2a, or add a subtle card shadow in
+    dark mode. The card needs to read as a discrete surface, not as a slightly lighter
+    rectangle.
+
+P7. LOADING STATES ARE PLACEHOLDER-GRADE
+    Every loading state in the app is:
+      `<div className="text-center py-20 text-gray-400">Se incarca...</div>`
+
+    Plain gray text, no animation, no skeleton, no indication of what is loading or
+    for how long. On 4G or a slow WiFi connection, this text can sit on screen for
+    1-3 seconds. That's a long time for a user who opened the app expecting to see
+    today's washes.
+
+    Skeleton cards — placeholder card shapes with a shimmer animation — take ~30 minutes
+    to implement and transform the perceived loading experience. The manager dashboard
+    (which auto-refreshes every 30 seconds) especially benefits from skeleton states
+    because users will see partial-load states regularly.
+
+P8. THE PROTOCOL COLOR IS INCONSISTENT
+    In Overview.tsx PaymentBar: PROTOCOL uses `bg-gray-400` (hardcoded)
+    In Dashboard.tsx badges: PROTOCOL uses `bg-orange-100 text-orange-700`
+
+    Same payment type, two different colors. This breaks the semantic color system that
+    is otherwise one of the app's genuine strengths. When a manager sees a gray bar in
+    the overview and then orange badges on their dashboard, the visual language becomes
+    unreliable.
+
+    Fix: Extract payment type colors to a single shared constant object and reference it
+    everywhere. Never inline payment type colors.
+
+P9. BUTTON LOADING STATES ARE TEXT SWAPS TO "..."
+    The save/submit buttons under load show `...` as their loading text:
+      `{editMutation.isPending ? '...' : 'Salveaza'}`
+
+    Ellipsis is a character, not a loading indicator. It doesn't communicate "working,"
+    it communicates "incomplete text." A spinner icon (even the CSS border-spin pattern)
+    or `Se salveaza...` would communicate intent. The `...` pattern shows up in multiple
+    places and should be cleaned up across the board.
+
+P10. THE CONFIRMATION DELETE PATTERN IS UNDERPOWERED
+    When deleting a service, the UI shows:
+      [Confirmi stergerea?] [Da, sterge] [Anuleaza]
+
+    This appears inline in the modal footer, replacing the delete button. The problem:
+    there's no visual escalation. The confirmation text is `text-xs text-red-500` — tiny
+    red text. The delete button was outlined/ghost red; now it becomes a filled red
+    button. But the context and information density of the modal hasn't changed.
+    Nothing has increased in visual urgency to match the fact that you're about to
+    destroy a service record.
+
+    Confirmation states should feel different from normal states. Add a brief red
+    background tint to the modal footer, or make the text larger. The destructive action
+    should feel like it requires a moment's consideration, not a reflex.
+
+
+MEDIUM PRIORITY
+
+P11. THE QUICK-LOGIN CARD ON LOGIN
+    The login page has a "Acces rapid (local)" card showing admin/manager credentials
+    directly on the login screen. This should be conditionally rendered with:
+      `{import.meta.env.DEV && <QuickLoginCard />}`
+    If this card is visible in production (even briefly), it is a security disclosure.
+    More practically: it looks like a dev artifact on what should be a clean
+    first-impression screen. The login page is the brand's handshake — ship it clean.
+
+P12. SCROLLBARS GLOBALLY REMOVED
+    `* { scrollbar-width: none }` removes scrollbars from every element in the app.
+    This affects tables with horizontal overflow, long dropdown lists, and the sidebar
+    itself. Users lose scroll affordance — they can't tell at a glance if a container
+    has more content below/right without trying to scroll.
+
+    The intent (cleaner UI) is correct, but the scope is wrong. Remove scrollbars only
+    from specific containers where it's a deliberate choice, not globally. At minimum,
+    table wrappers with horizontal scroll should show a scrollbar on touch devices.
+
+P13. FORMS HAVE NO VISUAL PROGRESS STRUCTURE
+    The manager Form.tsx is the core workflow of the app — it's how every single wash
+    gets recorded. It has 12+ fields spread across vehicle info, service selection,
+    payment, contact (accordion), notes. There's no visual grouping, no step numbers,
+    no section headers that distinguish "Vehicle Info" from "Service" from "Payment."
+
+    The contact section has an accordion but the ChevronDown toggle is the only
+    indicator it's collapsible. New users won't know it expands.
+
+    Adding simple section dividers with labels (even just `text-xs uppercase tracking-wide
+    text-gray-400 border-b`) would break the form into scannable chunks and reduce the
+    cognitive load for managers who fill this out under time pressure.
+
+P14. EMPTY STATES ARE INFORMATIONAL BUT NOT INVITING
+    The empty dashboard state (Car icon, "Nicio spalare inregistrata azi.", link to add)
+    is functionally correct. But the icon is `opacity-30` — extremely faint — and the
+    call-to-action is a small underlined text link, not a button. For a flow-critical
+    action (adding the first wash of the day), the CTA should be a proper button with
+    primary styling. The manager's first interaction of the shift should be guided, not
+    discovered via a faint link.
+
+P15. MAX-W-2XL ON ADMIN IS ISOLATING AT LANDSCAPE TABLET
+    Admin pages are constrained to `max-w-2xl mx-auto` (672px). On a landscape tablet
+    (1024px wide), this leaves 176px of empty space on each side. The KPI grid, payment
+    bar, and data tables could all benefit from the extra width at 1024px. The constraint
+    makes sense for portrait phones, but could relax at `lg:` to `max-w-4xl` or full
+    width with better internal grid structure.
+
+
+MINOR
+
+P16. SIDEBAR USER DISPLAY IS UNDERUTILIZED
+    The sidebar footer shows role (brand color uppercase) + username (gray text) +
+    a logout icon. The role and username context is useful but small. The logout button
+    has no label and relies entirely on the LogOut icon for recognition — this is fine
+    on desktop where hover title is available, but on touch devices there's no affordance.
+    A text label "Iesire" next to the icon would remove any ambiguity.
+
+P17. TYPOGRAPHY LACKS PERSONALITY
+    Inter is an excellent typeface — neutral, highly legible, designed for interfaces.
+    But it has zero personality for a car wash brand. The entire app — brand wordmark,
+    labels, data, everything — is Inter. A single display weight or a complementary
+    typeface for headings (something with automotive weight, like a condensed sans)
+    would give the brand identity something to work with. The plate numbers especially
+    would benefit from a monospace or condensed font that echoes actual license plate
+    aesthetics.
+
+P18. NO VISIBLE FOCUS MANAGEMENT AFTER FORM SUBMIT
+    After a successful service submission (success toast shows for 3 seconds), the form
+    resets. But focus is not explicitly returned to the plate number input. For a manager
+    doing 30 entries in a row, they have to tap the plate input again after each submit.
+    This is a small UX gap but in a high-volume data entry workflow it adds up.
+
+
+ARCHITECTURE NOTES (DESIGN IMPLICATIONS)
+-----------------------------------------
+
+The decision to put admin under `max-w-2xl mx-auto` in Layout.tsx is architectural —
+it means every admin page inherits this constraint. This is the right call for phone-first
+but the breakpoint should be revisited (`lg:max-w-4xl`). This one line in Layout.tsx
+affects every admin page in the app.
+
+The role-based theming via CSS class on the root div is clean, but the design system
+only defines three tokens (brand, brand-light, brand-dark). As the app grows, consider
+defining role-specific surface colors too. For example, the manager's "CURS" warning
+sections are yellow against an otherwise red-themed interface — it works, but a richer
+role-specific token set would give more design options without losing coherence.
+
+The component library is intentionally minimal (no UI framework beyond Tailwind + custom
+classes). This is a good choice for a focused internal tool. The risk is inconsistency
+creeping in as new pages are added — the PROTOCOL color discrepancy (P8) is an early sign
+of this. A shared `PAYMENT_COLORS` constant and a `PaymentBadge` component would prevent
+this class of issue permanently.
+
+
+SUMMARY TABLE
+-------------
+ID   | Severity | Area              | Issue
+-----|----------|-------------------|--------------------------------------------
+P1   | Critical | Navigation        | Navbar shows no page context
+P2   | Critical | Brand Identity    | No visual logo, only text wordmark
+P3   | Critical | Navigation        | No persistent sidebar on tablet/desktop
+P4   | Critical | Information Arch  | KPI cards have no visual hierarchy
+P5   | High     | Data Viz          | Payment bar too small for its importance
+P6   | High     | Dark Mode         | Card/body contrast too low
+P7   | High     | Loading States    | Plain text loading, no skeletons
+P8   | High     | Design System     | PROTOCOL color inconsistent app-wide
+P9   | High     | Interactions      | Button loading state is "..." text swap
+P10  | High     | Interactions      | Delete confirmation lacks visual urgency
+P11  | Medium   | Security/UX       | Quick-login card not dev-only gated
+P12  | Medium   | Accessibility     | Global scrollbar removal loses affordance
+P13  | Medium   | Form UX           | Manager form has no visual section structure
+P14  | Medium   | Empty States      | CTA in empty state is a text link not button
+P15  | Medium   | Layout            | max-w-2xl too narrow at landscape tablet
+P16  | Minor    | Navigation        | Logout button lacks text label on touch
+P17  | Minor    | Brand Identity    | Typography has no personality
+P18  | Minor    | Form UX           | Focus not returned to plate input after submit
+
+
+WHERE TO START
+--------------
+If I were prioritizing a sprint of fixes, this is the order:
+
+1. Page title in navbar (P1) — 1 hour, massive usability win for phone admin users
+2. Persistent sidebar at md: breakpoint (P3) — 2-3 hours, real workflow improvement
+3. PROTOCOL color constant extracted to shared file (P8) — 30 minutes, prevents future drift
+4. Skeleton loading states for Dashboard and Overview (P7) — 3-4 hours, transforms UX
+5. KPI card primary metric visual dominance (P4) — 1 hour, makes the revenue number scannable
+6. Dark mode card contrast fix (#252525 cards) (P6) — 15 minutes
+7. Quick-login conditional render (P11) — 10 minutes
+8. Simple logo/icon mark (P2) — 2-4 hours with a designer, depends on scope
+
+The rest can be addressed in subsequent iterations. None of these are rearchitecture —
+they're surface polish on an already solid foundation.

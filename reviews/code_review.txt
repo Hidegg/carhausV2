@@ -1,0 +1,508 @@
+================================================================================
+  CARHAUS V2 — CODE REVIEW
+  Reviewer: Claude Sonnet 4.6
+  Date: 2026-03-20
+  Scope: Full codebase (backend/ + frontend/ + config + scripts)
+================================================================================
+
+EXECUTIVE SUMMARY
+-----------------
+CarHaus V2 is a Flask + React vehicle wash management system with multi-location
+support, RBAC, daily reporting, and client history. The overall architecture is
+sound: SQLAlchemy ORM eliminates SQL injection, role decorators are applied
+consistently, and session-based auth works correctly. No critical zero-days were
+found. There are however several meaningful security gaps and quality issues that
+should be addressed before treating this system as production-hardened.
+
+Findings are classified as: CRITICAL / HIGH / MEDIUM / LOW.
+
+--------------------------------------------------------------------------------
+CRITICAL
+--------------------------------------------------------------------------------
+
+[C1] NO CSRF PROTECTION ON STATE-CHANGING ENDPOINTS
+File: backend/__init__.py, all blueprints
+-----
+Flask-WTF CSRF is not installed or enabled. Every POST/PUT/DELETE endpoint
+accepts requests from any origin that can reach the server, as long as the
+session cookie is present. Because the Axios client sends `withCredentials: true`
+and CORS is configured with `supports_credentials=True`, the browser will include
+the session cookie automatically.
+
+A malicious page visited by a logged-in manager could silently:
+  - Add fake service records (POST /api/manager/servicii)
+  - Delete existing service records (DELETE /api/manager/servicii/<id>)
+  - Change payment methods (POST /api/manager/update-payment/<id>)
+  - Modify worker rosters (POST/PUT/DELETE /api/manager/echipa)
+
+CORS whitelist does reduce cross-origin exposure from browsers, but CSRF
+protection is still the correct defense in depth.
+
+Fix: Add Flask-WTF with CSRF protection, or implement Double Submit Cookie /
+SameSite=Strict on the session cookie (see C3).
+
+[C2] WEAK DEFAULT SECRET KEY IN CONFIG
+File: backend/config.py:7
+-----
+  SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key')
+
+If the .env file fails to load (missing file, wrong working directory, import
+order issue), Flask silently falls back to the literal string "dev-secret-key".
+This key is used to sign session cookies. An attacker who knows the key can forge
+arbitrary sessions and impersonate any user including admin and dev accounts.
+
+The .env ships with SECRET_KEY=carhaus-super-secret-2024 which is also weak — a
+short, guessable string rather than a cryptographically random value.
+
+Fix: Generate a proper secret (e.g. `python -c "import secrets; print(secrets.token_hex(32))"`)
+and raise an error at startup if SECRET_KEY is not set or is a known-bad value.
+
+[C3] SESSION COOKIE SECURITY ATTRIBUTES NOT CONFIGURED
+File: backend/config.py
+-----
+SESSION_COOKIE_SECURE, SESSION_COOKIE_HTTPONLY, and SESSION_COOKIE_SAMESITE are
+not set. Flask defaults vary by version and deployment. Missing attributes mean:
+
+  - Without Secure: cookie sent over HTTP, exposable to network sniffing
+  - Without HttpOnly: cookie accessible from JavaScript (XSS escalation)
+  - Without SameSite=Strict/Lax: cross-site requests carry the cookie (CSRF)
+
+Setting SameSite=Strict alone would eliminate most CSRF risk described in C1.
+
+Fix: In config.py add:
+  SESSION_COOKIE_SECURE   = True   # production only; False for local dev
+  SESSION_COOKIE_HTTPONLY = True
+  SESSION_COOKIE_SAMESITE = 'Strict'
+
+[C4] HARDCODED WEAK CREDENTIALS IN INITIALIZATION SCRIPT
+File: initialize.py:42-46
+-----
+  ("admin",              "admin",   "12345678",  None)
+  ("dev",                "dev",     "87654321",  None)
+  ("carhaus_straulesti", "manager", "password1", straulesti.id)
+  ("carhaus_caranfil",   "manager", "password",  caranfil.id)
+
+These are seeded every time `initialize.py` is run. If this script is ever
+executed against the production database (e.g. after a redeploy), existing
+accounts with different passwords are overwritten with these weak defaults
+(see the `elif not u.check_password(password)` branch at line 55, which will
+rehash whenever the stored hash doesn't match the hardcoded value).
+
+An attacker who knows these credentials has immediate admin/dev access.
+
+Fix: Remove the password repair branch from initialize.py. Seed credentials
+should be read from environment variables, never hardcoded.
+
+--------------------------------------------------------------------------------
+HIGH
+--------------------------------------------------------------------------------
+
+[H1] NO REQUEST BODY SIZE LIMIT
+File: backend/__init__.py
+-----
+Flask's default maximum content length is unlimited. A single POST request to
+/api/manager/servicii with a 100MB JSON body will be fully buffered into memory.
+With no rate limiting on this endpoint (see H2), an attacker can exhaust server
+memory with a few concurrent requests.
+
+Fix: Set app.config['MAX_CONTENT_LENGTH'] = 1 * 1024 * 1024  # 1MB
+
+[H2] RATE LIMITING ONLY ON LOGIN — ALL OTHER ENDPOINTS UNLIMITED
+File: backend/extensions.py:12, backend/blueprints/auth/routes.py:10
+-----
+Flask-Limiter is installed and applied to /api/auth/login (10/min). No other
+endpoint has a rate limit. Sensitive operations with no limits include:
+
+  - POST /api/manager/servicii     — can flood database with service records
+  - PUT  /api/admin/settings/preturi — bulk price update, no array length cap
+  - GET  /api/dev/clients?page=N   — can enumerate all clients rapidly
+  - GET  /api/manager/plates-search — can enumerate all license plates
+
+Fix: Apply a reasonable rate limit to all write endpoints and to search/enum
+endpoints (e.g. 60/minute for reads, 30/minute for writes).
+
+[H3] `tipPlata` NOT VALIDATED AGAINST ENUM
+Files: backend/blueprints/manager/routes.py:146, 213
+-----
+  s.tipPlata = data.get('tipPlata', 'CASH')   # add_serviciu
+  s.tipPlata = data.get('tipPlata')            # update_payment (can be None!)
+
+The payment type field is stored as-is. Valid values are CASH, CARD, CURS,
+CONTRACT, PROTOCOL. An authenticated manager can:
+  - Store arbitrary strings (e.g. "HACK", "NULL")
+  - Set tipPlata to None via update_payment (line 213), breaking analytics
+    that compare `s.tipPlata == 'CASH'` etc.
+
+The analytics endpoint (analytics()) sums each payment type explicitly; unknown
+values silently fall through all conditions and are excluded from totals, causing
+revenue discrepancies.
+
+Fix: Validate against ALLOWED_TIP_PLATA = {'CASH', 'CARD', 'CURS', 'CONTRACT', 'PROTOCOL'}
+before persisting, and reject None.
+
+[H4] NO RATE LIMIT / ARRAY LENGTH CAP ON serviciiPrestate LIST
+File: backend/blueprints/manager/routes.py:119-155
+-----
+  servicii_list = data.get('serviciiPrestate', [])
+  for serviciu_name in servicii_list:
+      # 2 DB queries per item ...
+
+A POST to /api/manager/servicii with a serviciiPrestate array of 10,000 items
+executes up to 20,000 database queries in a single request. No length check
+exists. This is a server-side DoS vector available to any authenticated manager.
+
+Fix: Cap the list: if len(servicii_list) > 20: return 400.
+
+[H5] RACE CONDITION IN numarCurent ASSIGNMENT (SQLite)
+File: backend/blueprints/manager/routes.py:110-116
+-----
+  _q = Servicii.query.filter(...).order_by(Servicii.numarCurent.desc())
+  if db.engine.dialect.name != 'sqlite':
+      _q = _q.with_for_update()
+  ultimul = _q.first()
+  numarCurent = (ultimul.numarCurent + 1) if ultimul else 1
+
+On SQLite (local dev + Railway SQLite) there is no row lock at all. Two
+concurrent requests from two browser tabs or two managers at the same location
+can read the same numarCurent value and assign duplicates to that day's counter.
+Even on PostgreSQL, the with_for_update() lock is taken AFTER reading, which
+doesn't prevent a TOCTOU race in a high-concurrency scenario.
+
+Fix: Use a database-level sequence or enforce uniqueness with a UNIQUE constraint
+on (locatie_id, dataSpalare::date, numarCurent) and handle the IntegrityError
+with a retry.
+
+[H6] SPALATOR LOOKUP BY NAME INSTEAD OF ID — CROSS-LOCATION MATCH RISK
+File: backend/blueprints/manager/routes.py:106
+-----
+  spalator = Spalatori.query.filter_by(numeSpalator=data.get('spalator')).first()
+
+Workers are looked up by display name across the entire database. If two locations
+have a worker named "Alex", the first one returned (arbitrary database order) is
+used regardless of which location the manager belongs to. This means services
+could be attributed to the wrong worker.
+
+Fix: Pass and validate spalatori_id (integer FK) from the form instead of the
+name string.
+
+[H7] CLIENT LOOKUP IN add_serviciu CROSSES LOCATION BOUNDARY
+File: backend/blueprints/manager/routes.py:90
+-----
+  client = Clienti.query.filter_by(numarAutoturism=numar).first()
+
+When a plate is entered that already exists in another location, the manager
+silently receives (and updates) that client record. The new service is then saved
+with the manager's locatie_id but the client retains the other location's
+locatie_id. This creates cross-location data linkage that breaks the isolation
+model and may leak data in admin reports filtered by locatie.
+
+Consider: intentional design for multi-location regulars, but if isolation is
+desired, add a locatie check or create a new client record per location.
+
+[H8] NO PAGINATION ON MANAGER DASHBOARD
+File: backend/blueprints/manager/routes.py:161-204
+-----
+  servicii = q.order_by(Servicii.id.desc()).all()
+
+The dashboard loads every service for the current day with no LIMIT. During a
+busy day with many services, this returns a large payload. More importantly, the
+endpoint loads related records through lazy relationships inside the loop (lines
+179, 200), triggering N+1 queries — one per plate per spalator access.
+
+With 200 services in a day: 400+ queries per dashboard refresh.
+
+Fix: Use joinedload() for spalatori and clienti relationships, or restructure
+as explicit JOINs.
+
+--------------------------------------------------------------------------------
+MEDIUM
+--------------------------------------------------------------------------------
+
+[M1] NO INPUT LENGTH VALIDATION ON STRING FIELDS
+Files: manager/routes.py, admin/routes.py
+-----
+Several string inputs have no server-side length check before hitting the
+database. The database columns enforce limits (VARCHAR constraints), which will
+cause a raw SQLAlchemy error rather than a clean 400 response:
+
+  - numarAutoturism: VARCHAR(20) in DB, no check in route (manager/routes.py:86)
+  - notite:          VARCHAR(500) in DB, no check (manager/routes.py:148)
+  - nrFirma:         VARCHAR(100) in DB, no check (manager/routes.py:147)
+  - numeSpalator:    VARCHAR(50) in DB, no check (admin/routes.py:430)
+  - numeLocatie:     VARCHAR(50) in DB, no check (admin/routes.py:400)
+
+Exceeding these limits on SQLite silently truncates; on PostgreSQL it raises a
+DataError that, if not caught, returns a 500 with a stack trace (if debug is on).
+
+Fix: Validate length explicitly and return 400 with a clear message.
+
+[M2] NO EMAIL OR PHONE FORMAT VALIDATION
+File: backend/blueprints/manager/routes.py:94-95
+-----
+  emailClient=data.get('emailClient') or None,
+  telefonClient=data.get('telefonClient') or None,
+
+These are stored as free-form strings. "not an email" or "AAAAAAAAAAAAAA" are
+accepted silently. If GDPR consent is collected alongside invalid contact data,
+any downstream notification or compliance tooling will fail silently.
+
+Fix: If these fields are collected, validate with a basic regex or library.
+
+[M3] NO PASSWORD STRENGTH VALIDATION
+Files: admin/routes.py:549, dev/routes.py:176
+-----
+  password = data.get('password', '').strip()
+
+No minimum length or complexity check. A password of "a" is accepted. Given that
+the seeded defaults are already weak (see C4), this makes account takeover easier
+if any credential is guessed or leaked.
+
+Fix: Enforce a minimum length (e.g. 8 characters) and return 400 if not met.
+
+[M4] NO SESSION TIMEOUT
+File: backend/config.py
+-----
+PERMANENT_SESSION_LIFETIME is not configured. Sessions survive indefinitely as
+long as the browser keeps the cookie. A manager who forgets to log out on a shared
+tablet (the stated device context) leaves a permanently valid session.
+
+Fix: Add PERMANENT_SESSION_LIFETIME = timedelta(hours=12) and call
+session.permanent = True on login.
+
+[M5] PRODUCTION BACKUPS ARE SQLITE-ONLY AND LOCAL
+File: backend/__init__.py:40-46, backup.py
+-----
+The backup scheduler only runs when DATABASE_URL starts with 'sqlite'. In
+production (PostgreSQL via Railway) no automated backup runs. Backup files are
+also stored in ./backups/ on the same host — a single disk failure destroys both
+the live database and all backups.
+
+Fix: Schedule pg_dump for production; ship backups off-site (S3, GCS, etc.).
+
+[M6] N+1 QUERY IN curs_pending
+File: backend/blueprints/admin/routes.py:249-262
+-----
+  for row in rows:
+      c = Clienti.query.get(row.clienti_id)
+
+For each debtor in the CURS-pending list, a separate SELECT is issued to fetch
+the client record. With 50 debtors, this is 51 queries. Use a JOIN or
+subquery to fetch all clients in one pass.
+
+[M7] FLOATING POINT USED FOR ALL CURRENCY
+File: backend/models.py:79-80,102-107
+-----
+  pretServicii    = db.Column(db.Float, ...)
+  comisionServicii = db.Column(db.Float, ...)
+  pretAutoturism  = db.Column(db.Float, ...)
+  ... (all price/commission columns)
+
+IEEE 754 floating point cannot represent many decimal values exactly. Summing
+hundreds of prices may accumulate rounding errors that appear in financial reports
+(e.g. totals that are off by ±0.01 RON). For a car wash this may be acceptable,
+but for accounting-grade records it is not.
+
+Fix: Use db.Numeric(precision=10, scale=2) for all monetary columns.
+
+[M8] NO HTTP SECURITY RESPONSE HEADERS
+File: backend/__init__.py
+-----
+No security headers are set:
+  - Content-Security-Policy  (XSS mitigation)
+  - X-Frame-Options          (clickjacking prevention)
+  - X-Content-Type-Options   (MIME sniffing prevention)
+  - Strict-Transport-Security (HSTS, forces HTTPS)
+  - Referrer-Policy
+
+These are one-time config additions and provide meaningful defense in depth.
+
+Fix: Use Flask-Talisman or add an after_request hook to set these headers.
+
+[M9] FLASK DEBUG MODE ENABLED IN .env
+File: .env:3
+-----
+  FLASK_DEBUG=true
+
+If this .env is used in a production deployment (or if the file is accidentally
+copied to production), Flask runs in debug mode which:
+  - Returns full Python tracebacks in HTTP error responses
+  - Enables the interactive Werkzeug debugger (remote code execution if reachable)
+  - Disables some production optimizations
+
+The .gitignore correctly excludes .env, but the value should default to false
+in config.py (it does) and the deployed environment should explicitly set it to
+false rather than relying on the absence of a file.
+
+--------------------------------------------------------------------------------
+LOW
+--------------------------------------------------------------------------------
+
+[L1] HARDCODED FALLBACK SECRET KEY IS PREDICTABLE
+File: backend/config.py:7
+-----
+(Also covered in C2.) The string "dev-secret-key" appears in a public-facing
+config file. If this codebase is ever open-sourced or leaked, the fallback
+becomes a known-bad value. Best practice is to raise a RuntimeError on startup
+if SECRET_KEY is missing rather than silently using a fallback.
+
+[L2] `update_payment` CAN STORE NULL tipPlata
+File: backend/blueprints/manager/routes.py:213
+-----
+  s.tipPlata = data.get('tipPlata')
+
+If the JSON body does not include "tipPlata", this sets it to None. The column
+is defined as nullable=False in the model (db.Column(db.String(50), nullable=False))
+so PostgreSQL will raise an IntegrityError, but SQLite will silently store NULL.
+This is a bug regardless of the validation gap (H3).
+
+Fix: s.tipPlata = data.get('tipPlata') or s.tipPlata (fall back to existing value).
+
+[L3] STATIC FILE CATCH-ALL COULD MASK API 404s
+File: backend/__init__.py:49-57
+-----
+  @app.route('/<path:path>')
+  def serve_react(path):
+      if path and os.path.exists(os.path.join(dist, path)):
+          return send_from_directory(dist, path)
+      return send_from_directory(dist, 'index.html')
+
+If an API blueprint raises a 404 (e.g. /api/manager/nonexistent), Flask would
+normally return a JSON 404. With this catch-all registered AFTER the blueprints,
+the blueprint's 404 is returned correctly. However, if the blueprint is not
+registered for some reason (import error, typo), the catch-all silently serves
+index.html with a 200, making the failure invisible in logs.
+
+[L4] WORKER NAMES EXPOSED IN ANALYTICS WITHOUT SANITIZATION
+File: backend/blueprints/manager/routes.py:316
+-----
+  'spalatori': [{'name': k, **v} for k, v in spalatori_map.items()]
+
+Worker names are stored and returned as-is. If a worker name is entered as HTML
+(e.g. "<script>alert(1)</script>") and the React frontend renders it unsafely,
+this is a stored XSS vector. React's JSX escapes by default, so this is only an
+issue if dangerouslySetInnerHTML is used anywhere. Review frontend rendering of
+worker/client names.
+
+[L5] get_client LOADS FULL SERVICE HISTORY WITHOUT LIMIT
+File: backend/blueprints/manager/routes.py:430-438
+-----
+  servicii_list = Servicii.query.filter_by(clienti_id=client.id).all()
+
+This autocomplete endpoint (called on plate focus) loads the complete service
+history of a client to count visits and find the most common service. For a
+client with 500+ visits this loads all records into memory just to do a Python
+Counter. Use SQL aggregation instead (COUNT, MAX, GROUP BY).
+
+[L6] NO UNIQUE CONSTRAINT ON Locatie.numeLocatie
+File: backend/models.py:10
+-----
+  numeLocatie = db.Column(db.String(50), nullable=False)
+
+There is no unique=True on this column. Two locations can have the same name,
+which would cause ambiguity in reports and admin UI. The initialize.py uses
+filter_by(numeLocatie=...) to check for duplicates, but the database does not
+enforce this.
+
+Fix: Add unique=True to the column and a migration.
+
+[L7] ALL ADMIN REPORT ENDPOINTS ARE IDENTICAL
+File: backend/blueprints/admin/routes.py:41-70
+-----
+/zilnic, /saptamanal, /lunar, and /spalatori all call build_reports() and return
+the same data. The time filtering (daily/weekly/monthly) must be happening
+entirely on the frontend. This means every report loads ALL historical data and
+returns it in full, letting the client filter. This will become a performance
+problem as data grows.
+
+Fix: Accept date range parameters server-side and filter in SQL.
+
+[L8] BACKUP ERROR IS SURFACED TO CLIENT
+File: backend/blueprints/dev/routes.py:293
+-----
+  except Exception as e:
+      return jsonify({'ok': False, 'error': str(e)}), 500
+
+The raw exception message (which may include filesystem paths, filenames, or OS
+error details) is returned to the client. Log the exception server-side instead
+and return a generic message to the client.
+
+--------------------------------------------------------------------------------
+POSITIVE FINDINGS
+--------------------------------------------------------------------------------
+
+The following practices are done well and should be maintained:
+
+- SQLAlchemy ORM used throughout. No raw SQL in application code. Parameterized
+  queries by default; SQL injection is not a realistic attack vector here.
+
+- Role-based access control is applied consistently across all blueprints.
+  manager_required, admin_required, and dev_required decorators are clean and
+  correct. The role hierarchy (manager ⊂ admin ⊂ dev) is properly implemented.
+
+- Location isolation for managers is enforced server-side via the session
+  (session['locatie_id'] set on login, not user-controlled). Delete and toggle
+  operations verify the resource belongs to the manager's location before
+  proceeding (e.g. echipa_delete at line 251 checks sp.locatie_id != locatie_id).
+
+- Timezone handling is correct. Europe/Bucharest ZoneInfo is used throughout
+  with a 4am business-day cutoff, which is a real-world requirement handled
+  properly.
+
+- Password hashing uses werkzeug.security (scrypt/bcrypt depending on Python
+  version), which is appropriate. The password_hash column was expanded to
+  VARCHAR(512) to accommodate longer hashes — good forward compatibility.
+
+- Rate limiting on login is present and correctly configured (10/min by IP).
+
+- TypeScript on the frontend provides type safety at compile time, reducing
+  the chance of client-side logic bugs.
+
+- The tests use an in-memory SQLite database with StaticPool and inject
+  Flask-Login sessions directly, which is the correct approach for unit testing
+  Flask applications. This avoids rate limit exhaustion and test pollution.
+
+- The backup scheduler skips production PostgreSQL (implicit) and runs only on
+  SQLite. While the omission of a PostgreSQL backup is a problem (see M5), the
+  code at least avoids accidentally writing SQLite backups when PG is in use.
+
+--------------------------------------------------------------------------------
+SUMMARY TABLE
+--------------------------------------------------------------------------------
+
+  ID   Severity   Title
+  --   --------   -----
+  C1   CRITICAL   No CSRF protection on state-changing endpoints
+  C2   CRITICAL   Weak/predictable SECRET_KEY with hardcoded fallback
+  C3   CRITICAL   Session cookie security attributes not configured
+  C4   CRITICAL   Weak hardcoded credentials in initialize.py
+  H1   HIGH       No request body size limit (memory DoS)
+  H2   HIGH       Rate limiting missing on all endpoints except login
+  H3   HIGH       tipPlata not validated against enum, can be set to None
+  H4   HIGH       No cap on serviciiPrestate array length (query DoS)
+  H5   HIGH       Race condition in numarCurent assignment
+  H6   HIGH       Worker lookup by name risks cross-location attribution
+  H7   HIGH       Client lookup crosses location boundary
+  H8   HIGH       N+1 queries and no pagination on manager dashboard
+  M1   MEDIUM     No input length validation on string fields
+  M2   MEDIUM     No email/phone format validation
+  M3   MEDIUM     No password strength enforcement
+  M4   MEDIUM     No session timeout configured
+  M5   MEDIUM     Production PostgreSQL backup missing; backups are local-only
+  M6   MEDIUM     N+1 query in curs_pending endpoint
+  M7   MEDIUM     Float used for all monetary values (precision risk)
+  M8   MEDIUM     No HTTP security response headers (CSP, HSTS, X-Frame, etc.)
+  M9   MEDIUM     FLASK_DEBUG=true in .env
+  L1   LOW        Predictable fallback secret key
+  L2   LOW        update_payment can null tipPlata on missing key
+  L3   LOW        Catch-all route masks API blueprint failures
+  L4   LOW        Worker/client names rendered without XSS review
+  L5   LOW        get_client loads full history for Counter operation
+  L6   LOW        Locatie.numeLocatie has no UNIQUE constraint
+  L7   LOW        Admin report endpoints return all-time data, filter on client
+  L8   LOW        Backup exception message returned raw to client
+
+  Total: 4 Critical, 8 High, 9 Medium, 8 Low = 29 findings
+
+================================================================================
+END OF REVIEW
+================================================================================

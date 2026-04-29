@@ -1,0 +1,611 @@
+================================================================================
+  CARHAUS V2 — OVERALL REVIEW & FINISHING SPRINT PLAN
+  Date: 2026-03-20
+  Sources: Code Review (Claude Sonnet 4.6) + Design Review (Senior Frontend Dev)
+           + Owner Review (10+ year operator) + Technical Analysis (Claude Code)
+================================================================================
+
+
+EXECUTIVE SUMMARY
+-----------------
+CarHaus V2 is a legitimate, domain-correct car wash management system. The daily
+workflow is right. The financial model (CASH/CARD/CURS/CONTRACT/PROTOCOL) is right.
+The commission structure is right. The 4am day boundary shows real operational
+understanding. Multi-location RBAC works correctly. This is not a generic admin
+panel with a car wash label — it was built with genuine domain knowledge.
+
+For a B2C single-location operation: ~85% complete. Could run a location on it today.
+For a B2B multi-location operation: ~65% complete. Invoicing is a legal blocker.
+For portfolio / client delivery: needs the items in SECTION A before handoff.
+
+The app's foundation is solid. The finishing sprint is not about rebuilding — it's
+about fixing real bugs, hardening the production config, and cleaning up a set of
+specific UI decisions that are "almost right."
+
+
+================================================================================
+  SECTION A — FINISHING SPRINT (MUST FIX BEFORE DELIVERY)
+================================================================================
+
+These are bugs, data integrity issues, and glaring UX problems. Everything here
+is fixable in a focused sprint. Organized by subsystem.
+
+--------------------------------------------------------------------------------
+A1. BUGS — DATA CORRECTNESS
+--------------------------------------------------------------------------------
+
+[BUG-01] GDPR/T&C CHECKBOXES BYPASS — NEW CLIENTS CAN BE SUBMITTED WITHOUT CONSENT
+File: frontend/src/pages/manager/Form.tsx
+-----
+The GDPR and Terms checkboxes are inside the "Adauga informatii contact" accordion.
+The accordion is collapsed by default. If a manager never opens it for a new client,
+the `required` checkboxes never render — HTML5 validation doesn't fire on hidden
+elements. A new client record can be created with gdprAcceptat=false and
+termeniAcceptati=false even though consent is legally required.
+
+Fix: Move GDPR/Terms checkboxes OUTSIDE the accordion (they're not "contact info" —
+they're legal consent). Show them always for new clients. Keep email/phone inside
+the accordion. Alternatively, enforce on submit: if !clientExistent and (!gdpr
+|| !termeni), block submission with a visible error.
+
+[BUG-02] tipPlata CAN BE STORED AS NULL
+File: backend/blueprints/manager/routes.py:213
+-----
+  s.tipPlata = data.get('tipPlata')
+
+If the JSON body omits "tipPlata", this stores None. On SQLite it silently persists
+NULL into a NOT NULL column. This breaks every analytics query that compares
+`s.tipPlata == 'CASH'` etc. — those records disappear from all reports.
+
+Fix (one line): s.tipPlata = data.get('tipPlata') or s.tipPlata
+
+[BUG-03] PROTOCOL COLOR INCONSISTENCY — SAME PAYMENT TYPE, TWO DIFFERENT COLORS
+Files: frontend/src/pages/admin/Overview.tsx:14, frontend/src/pages/manager/Dashboard.tsx:291
+-----
+Overview PaymentBar: PROTOCOL = bg-gray-400 (gray)
+Dashboard badges:    PROTOCOL = bg-orange-100 text-orange-700 (orange)
+
+The semantic color system (CASH=green, CARD=blue, CURS=yellow, CONTRACT=purple,
+PROTOCOL=orange) is a genuine strength of this app. The inconsistency in Overview
+breaks it. An admin sees gray for PROTOCOL in the bar and orange in their dashboard
+— the color carries no consistent meaning.
+
+Fix: Extract to a shared constant. Create frontend/src/utils/paymentColors.ts:
+  export const PAYMENT_COLORS = {
+    CASH:     { bg: 'bg-green-500',  badge: 'bg-green-100 text-green-700 ...' },
+    CARD:     { bg: 'bg-blue-500',   badge: 'bg-blue-100 text-blue-700 ...' },
+    CURS:     { bg: 'bg-yellow-500', badge: 'bg-yellow-100 text-yellow-700 ...' },
+    CONTRACT: { bg: 'bg-purple-500', badge: 'bg-purple-100 text-purple-700 ...' },
+    PROTOCOL: { bg: 'bg-orange-500', badge: 'bg-orange-100 text-orange-700 ...' },
+  }
+Reference it in Overview, Dashboard, and any future payment display.
+
+[BUG-04] CURS AMOUNT MISSING FROM ADMIN OVERVIEW PAYMENT BAR
+File: frontend/src/pages/admin/Overview.tsx:12
+-----
+  { key: 'CURS', val: r.ziuaCurenta?.incasariTipPlata?.CURS ?? 0, ... }
+
+`incasariTipPlata` is deliberately built WITHOUT CURS (stats.py excludes it from
+collected revenue). CURS amounts live in `cursInAsteptare.amount`. So the CURS
+segment in the PaymentBar is always 0 and never renders (filtered out at .filter(p => p.val > 0)).
+Admins cannot see pending CURS in the payment breakdown at all.
+
+Fix: Change to:
+  { key: 'CURS', val: r.ziuaCurenta?.cursInAsteptare?.amount ?? 0, color: 'bg-yellow-500' }
+
+[BUG-05] WORKER LOOKUP BY NAME — CROSS-LOCATION ATTRIBUTION RISK
+File: backend/blueprints/manager/routes.py:106
+-----
+  spalator = Spalatori.query.filter_by(numeSpalator=data.get('spalator')).first()
+
+Workers are found by display name across the entire database. If two locations have
+a worker named "Alex," the first DB record is used regardless of the submitting
+manager's location. Services can be attributed to the wrong worker.
+
+Fix: The form already has spalatori objects with IDs (from /form-data). Send
+spalatori_id as an integer in the POST body instead of numeSpalator string.
+Validate on backend: spalator must belong to the manager's locatie_id.
+
+[BUG-06] QUICK-LOGIN CARD VISIBLE IN ALL ENVIRONMENTS
+File: frontend/src/pages/Login.tsx
+-----
+The "Acces rapid (local)" dev credentials card renders unconditionally. If the
+production build ever deploys with this visible (e.g. env var not stripped), real
+admin/manager credentials are shown on the login screen.
+
+Fix: Wrap with import.meta.env.DEV check:
+  {import.meta.env.DEV && <QuickLoginCard />}
+
+--------------------------------------------------------------------------------
+A2. BACKEND HARDENING — PRODUCTION CONFIG
+--------------------------------------------------------------------------------
+
+[HARD-01] SESSION COOKIE SECURITY ATTRIBUTES MISSING
+File: backend/config.py
+-----
+SESSION_COOKIE_SECURE, SESSION_COOKIE_HTTPONLY, SESSION_COOKIE_SAMESITE not set.
+Without SameSite=Lax/Strict, CSRF attacks are possible. Without HttpOnly, XSS can
+steal the session cookie. Without Secure, cookies transmit over HTTP.
+
+Fix: Add to config.py (in the production config class):
+  SESSION_COOKIE_SECURE   = True
+  SESSION_COOKIE_HTTPONLY = True
+  SESSION_COOKIE_SAMESITE = 'Lax'
+
+Use Lax (not Strict) so that navigation from external links still works.
+
+[HARD-02] SESSION TIMEOUT NOT CONFIGURED
+File: backend/config.py, backend/blueprints/auth/routes.py
+-----
+Sessions never expire. A manager who leaves a tablet logged in at the end of a shift
+has an indefinitely valid session.
+
+Fix: In config.py: PERMANENT_SESSION_LIFETIME = timedelta(hours=12)
+    In login route: session.permanent = True
+
+[HARD-03] NO REQUEST BODY SIZE LIMIT
+File: backend/__init__.py
+-----
+Flask defaults to unlimited body size. A large JSON POST can exhaust server memory.
+
+Fix: app.config['MAX_CONTENT_LENGTH'] = 1 * 1024 * 1024  # 1MB
+
+[HARD-04] tipPlata NOT VALIDATED AGAINST ALLOWED VALUES
+File: backend/blueprints/manager/routes.py
+-----
+Any string can be stored as tipPlata. Unknown values silently disappear from reports.
+
+Fix: At top of file:
+  ALLOWED_TIP_PLATA = {'CASH', 'CARD', 'CURS', 'CONTRACT', 'PROTOCOL'}
+Validate before storing and return 400 if invalid.
+
+[HARD-05] serviciiPrestate ARRAY HAS NO LENGTH CAP
+File: backend/blueprints/manager/routes.py:119
+-----
+A POST with 1000 items in serviciiPrestate executes 2000 DB queries. DoS vector for
+any authenticated manager.
+
+Fix: if len(servicii_list) > 20: return jsonify({'error': 'Prea multe servicii'}), 400
+
+[HARD-06] HTTP SECURITY HEADERS NOT SET
+File: backend/__init__.py
+-----
+No Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, or
+Referrer-Policy headers. Standard defense-in-depth that takes 10 minutes to add.
+
+Fix: Add an after_request hook or use Flask-Talisman:
+  @app.after_request
+  def security_headers(response):
+      response.headers['X-Frame-Options'] = 'DENY'
+      response.headers['X-Content-Type-Options'] = 'nosniff'
+      response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+      return response
+(CSP is more complex — add after testing that nothing breaks.)
+
+[HARD-07] N+1 QUERIES IN MANAGER DASHBOARD
+File: backend/blueprints/manager/routes.py:161-204
+-----
+Dashboard does `.all()` then accesses `s.clienti.numarAutoturism` and
+`s.spalatori.numeSpalator` inside the loop — lazy-loading N relations for N records.
+With 100 services today: 300+ queries per 30-second auto-refresh.
+
+Fix: Use joinedload:
+  from sqlalchemy.orm import joinedload
+  q = q.options(joinedload(Servicii.clienti), joinedload(Servicii.spalatori))
+
+[HARD-08] N+1 QUERY IN curs_pending
+File: backend/blueprints/admin/routes.py:249
+-----
+  for row in rows: c = Clienti.query.get(row.clienti_id)
+
+One SELECT per debtor. Fix: JOIN Clienti into the aggregation query directly.
+
+--------------------------------------------------------------------------------
+A3. UI/UX FIXES — HIGH IMPACT
+--------------------------------------------------------------------------------
+
+[UI-01] NAVBAR SHOWS NO PAGE CONTEXT
+File: frontend/src/components/Navbar.tsx
+-----
+Every page shows the same "[hamburger] CARHAUS [moon]" navbar. No page title,
+no breadcrumb. An admin on a phone who scrolls down past the h2 heading has no
+orientation. This is the single highest-impact UI fix.
+
+Fix: Pass the current page title to Navbar and display it in the center or as a
+subtitle. Use react-router's useLocation + a route→title map to derive it.
+Example: Overview → "Raport Zilnic", Clienti → "Clienti", etc.
+
+[UI-02] NO PERSISTENT SIDEBAR ON TABLET/DESKTOP
+File: frontend/src/components/Layout.tsx, Sidebar.tsx
+-----
+The sidebar is overlay-only on all screen sizes. A manager on a 10" tablet needs
+2 taps for every navigation action. At md: breakpoints the sidebar should be
+persistent (always visible), with main content shifting right.
+
+Fix: In Layout.tsx, at md: show sidebar as a fixed left column (w-56 flex-shrink-0).
+Hide the hamburger at md:. The sidebar component already has the right width.
+
+[UI-03] LOADING STATES — PLAIN TEXT ONLY
+File: Every page component
+-----
+Every loading state is `<div className="text-center py-20 text-gray-400">Se incarca...</div>`
+The manager dashboard auto-refreshes every 30 seconds — users see this text regularly.
+
+Fix: Replace with skeleton card layouts that match the shape of the actual content.
+At minimum: animated pulse placeholders (Tailwind's `animate-pulse` + bg-gray-200 divs
+in the shape of cards). The dashboard and overview benefit most.
+
+[UI-04] BUTTON LOADING STATES USE "..."
+Files: Dashboard.tsx, Settings.tsx, and others
+-----
+`{mutation.isPending ? '...' : 'Salveaza'}` — ellipsis is not a loading indicator.
+
+Fix: Replace with descriptive text ("Se salveaza...", "Se inregistreaza...") or add
+a small inline spinner icon (lucide `Loader2` with animate-spin class).
+
+[UI-05] KPI CARD HIERARCHY — REVENUE NOT VISUALLY DOMINANT
+File: frontend/src/pages/admin/Overview.tsx
+-----
+All 4 KPI cards are identical in size and weight. "Incasari Azi" (the primary number
+an admin opens the app to check) is visually equal to "Servicii." The most important
+number on the page should be the most visually prominent.
+
+Fix: Make the Incasari card span full width (col-span-2 on mobile, col-span-full or
+special hero treatment on desktop). Increase font size to text-3xl or text-4xl.
+Use the brand color for the value text. Three smaller supporting stats below.
+
+[UI-06] DARK MODE CARD CONTRAST TOO LOW
+File: frontend/src/index.css or tailwind config
+-----
+Body: #161616, Card: #1f1f1f — 9 hex point delta. Cards are barely distinguishable
+from the body background in dark mode.
+
+Fix: Increase card bg to #252525–#2a2a2a, or add box-shadow:
+  .card { box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+
+[UI-07] DELETE CONFIRMATION LACKS VISUAL URGENCY
+File: frontend/src/pages/manager/Dashboard.tsx (EditModal)
+-----
+The inline [Confirmi stergerea?] confirmation replaces the delete button with tiny
+red text. No visual escalation. Nothing communicates "this is irreversible."
+
+Fix: Add a red tint to the modal footer area when in confirm state:
+  className={confirmDelete ? "flex justify-between pt-2 bg-red-50 dark:bg-red-900/10 -mx-5 px-5 py-3 rounded-b-xl" : "flex justify-between pt-2"}
+
+[UI-08] FOCUS NOT RETURNED TO PLATE INPUT AFTER SUBMIT
+File: frontend/src/pages/manager/Form.tsx
+-----
+After a successful submission, the form resets but focus lands wherever it was.
+In a high-volume entry workflow (30 cars/day), the manager has to tap the plate
+field again after every submission.
+
+Fix: Add a ref to the plate input and call .focus() in the onSuccess handler.
+
+[UI-09] EMPTY DASHBOARD STATE CTA IS A TEXT LINK
+File: frontend/src/pages/manager/Dashboard.tsx:158
+-----
+"Adauga primul serviciu" is a small underlined text link. For the first action
+of the shift, it should be a proper primary button with full styling.
+
+Fix: Change Link to use btn-primary class (keep it as Link for routing but style
+it as a button).
+
+[UI-10] GLOBAL SCROLLBAR REMOVAL LOSES SCROLL AFFORDANCE
+File: frontend/src/index.css
+-----
+`* { scrollbar-width: none }` removes scrollbars from every element including
+horizontal-scrollable tables. Users can't tell at a glance if a table has more
+columns to the right.
+
+Fix: Remove the global rule. Apply scrollbar hiding only to specific containers
+where it's intentional (sidebar, certain dropdowns). Add a subtle gradient fade
+on the right edge of scrollable tables as an affordance alternative.
+
+
+================================================================================
+  SECTION B — WHAT'S WORKING WELL (DO NOT BREAK)
+================================================================================
+
+These are validated decisions. Every fix must preserve them.
+
+— Plate autocomplete with full client autofill. Fast, accurate, essential.
+— 4am business day cutoff. Real-world carwash requirement. Never change this.
+— CURS payment type tracked separately from collected revenue across all reports.
+— Per-service, per-vehicle-class commission structure (AUTOTURISM/SUV/VAN).
+— Location-specific price overrides with global fallback.
+— Annual → monthly → weekly historical drill-down with CSV export in Istoric.
+— GDPR consent fields built into the service form (once bug-01 is fixed).
+— Role separation enforced server-side (session['locatie_id']).
+— Multi-service selection per car in a single form submission.
+— Payment type semantic color system (once bug-03 is fixed).
+— Framer Motion used with restraint — functional not decorative.
+— Role-based CSS theming via CSS custom properties (correct architecture).
+— Dark mode with localStorage persistence.
+— TypeScript throughout the frontend.
+— Rate limit on login endpoint.
+— Password hashing with werkzeug.security.
+
+
+================================================================================
+  SECTION C — TESTING PLAN
+================================================================================
+
+After all A-section fixes are applied, verify the following flows.
+
+AUTHENTICATION FLOWS
+  [ ] Login as admin — redirects to /admin/overview
+  [ ] Login as manager (straulesti) — redirects to /manager/form, can only see straulesti data
+  [ ] Login as manager (caranfil) — same for caranfil
+  [ ] Login as dev — redirects to /dev
+  [ ] Wrong password — error shown, no redirect
+  [ ] Session timeout: wait 12h (or set lifetime to 1min for test) — redirected to login
+  [ ] Logout — session cleared, redirect to login, back button does not re-enter app
+
+MANAGER — FORM FLOW
+  [ ] Enter new plate → form is blank, brand picker reachable
+  [ ] Enter existing plate (≥4 chars) → client data autofills (tip, marca, email, phone)
+  [ ] Autofill pre-selects most common service and payment type for returning client
+  [ ] Client context row shows: visit count, last visit (relative), frequent service, frequent payment
+  [ ] Milestone visit (10th, 25th, 50th etc.) shows "Vizita #N 🎉" badge
+  [ ] Brand picker opens, selecting a brand shows logo + name in the button
+  [ ] Car type toggle (AUTOTURISM / SUV / VAN) — price shown in service checkboxes updates correctly
+  [ ] Plate dropdown appears after 2+ chars, clicking a suggestion fills plate and triggers autofill
+  [ ] New client: contact accordion is collapsed by default
+  [ ] New client: submitting WITHOUT opening accordion → should FAIL (after BUG-01 fix)
+  [ ] New client: opening accordion, filling email/phone, checking GDPR+Termeni → submit succeeds
+  [ ] Existing client: accordion not shown, email/phone shown as read-only summary if present
+  [ ] Payment type CASH → no nr firma field
+  [ ] Payment type CARD → no nr firma field
+  [ ] Payment type CONTRACT → nr firma field appears, required
+  [ ] Payment type PROTOCOL → nr firma field appears, required
+  [ ] Payment type CURS → no nr firma field
+  [ ] Spalator selector shows only spalatori marked prezentAzi=true (or all if none present)
+  [ ] Selecting a spalator highlights it
+  [ ] No spalator selected → submit blocked (required hidden input)
+  [ ] At least one service selected → total updates in real time
+  [ ] No service selected → "Selecteaza cel putin un serviciu" error
+  [ ] Notes field is optional
+  [ ] Successful submit → success banner 3s, form resets, focus returns to plate input (after UI-08 fix)
+  [ ] nrFirma suggestions (datalist) appear for CONTRACT/PROTOCOL based on history
+
+MANAGER — DASHBOARD FLOW
+  [ ] Today's services appear as cards grouped by plate
+  [ ] CURS cards appear in yellow-bordered section at top
+  [ ] Paid cards appear in section below
+  [ ] Search by plate number filters correctly (uppercase match)
+  [ ] Dashboard auto-refreshes every 30 seconds (check network tab)
+  [ ] Edit modal opens on pencil icon — shows correct current values
+  [ ] Edit: change service type → price updates correctly for car type
+  [ ] Edit: change spalator → only spalatori for this location appear
+  [ ] Edit: change payment type → nr firma field appears/disappears correctly
+  [ ] Edit: save → card updates without page reload
+  [ ] Delete: first click shows confirmation, second confirms, card removed
+  [ ] CURS inline: clicking CASH/CARD updates payment type immediately
+  [ ] CURS inline: clicking CONTRACT/PROTOCOL opens nr firma inline input
+  [ ] Empty state shows when no services for today
+
+MANAGER — ANALYTICS FLOW
+  [ ] Total collected = CASH + CARD + CONTRACT + PROTOCOL (not CURS)
+  [ ] Pending = CURS only
+  [ ] Per-payment breakdown bars show correct percentages
+  [ ] Each spalator row shows correct service count and total
+  [ ] Spalator expand shows individual service items with time and price
+  [ ] "Arata Comisioane" toggle shows/hides commission column
+
+MANAGER — ECHIPA FLOW
+  [ ] All spalatori for this location listed
+  [ ] Toggle prezentAzi — visual change + persisted (reload confirms)
+  [ ] Add new spalator → appears in list and in Form's spalator selector
+  [ ] Delete spalator → removed from list (note: will break if they have services linked)
+
+ADMIN — OVERVIEW FLOW
+  [ ] Tab navigation cycles through all locations + TOTAL
+  [ ] KPI row shows: Incasari Azi, Masini, Servicii, Medie/Masina for selected tab
+  [ ] Incasari = CASH + CARD + CONTRACT + PROTOCOL (CURS excluded)
+  [ ] Payment bar shows all payment types with correct proportions (including CURS after BUG-04 fix)
+  [ ] TOTAL tab shows location comparison table
+  [ ] Specific location tab shows washer breakdown table
+  [ ] Refreshes every 60 seconds
+
+ADMIN — RAPOARTE FLOW
+  [ ] Tab: per location or TOTAL
+  [ ] Period toggle: Saptamanal / Lunar
+  [ ] KPI cards match selected period
+  [ ] Bar chart renders correct payment breakdown
+  [ ] Washer table shows spalari + comision for period
+
+ADMIN — SPALATORI FLOW
+  [ ] Period toggle: Azi / Saptamana / Luna
+  [ ] Location tab cycles correctly
+  [ ] Washers with zero activity show "—" not 0
+  [ ] Total row at bottom sums correctly
+  [ ] TOTAL tab shows union of all locations' washers
+
+ADMIN — CLIENTI FLOW
+  [ ] Client list loads
+  [ ] Search by plate (partial match, uppercase)
+  [ ] Sort by vizite (default desc), total, data
+  [ ] Brand filter works (multi-select)
+  [ ] Click client → navigates to ClientDetail
+
+ADMIN — CLIENTI DETAIL FLOW
+  [ ] Service history shown newest first
+  [ ] Each row: service name, date, price, payment type, nr firma
+  [ ] Correct client info in header (plate, marca, tip)
+
+ADMIN — ISTORIC FLOW
+  [ ] Curent mode: shows Saptamana Curenta + Luna Curenta cards with stats
+  [ ] Payment breakdown per period only shows types with values > 0
+  [ ] Historic mode: annual view loads bar chart (revenue by month)
+  [ ] Click a month bar → drills into monthly weekly view
+  [ ] Year navigation prev/next respects min year (first record) and max year (current)
+  [ ] Monthly view: weekly buckets labeled correctly (1-7, 8-14, 15-21, 22-end)
+  [ ] Service breakdown table at bottom matches chart period
+  [ ] CSV export downloads correct file with correct data
+
+ADMIN — SETTINGS FLOW
+  [ ] Locatii tab: add location → appears in list
+  [ ] Locatii tab: delete location → removed (careful: cascades to spalatori/servicii)
+  [ ] Spalatori tab: add spalator to location → appears + appears in manager form
+  [ ] Spalatori tab: delete spalator → removed
+  [ ] Preturi tab Global: shows all global prices
+  [ ] Preturi tab per-location: shows location overrides + grayed global fallbacks
+  [ ] Edit price fields → dirty flag → save button appears → save persists
+  [ ] Add new service (global) → appears in manager form
+  [ ] Toggle activ (eye icon) → service grayed out, disappears from manager form
+  [ ] Delete service → confirmation, removed
+  [ ] Manageri tab: lists managers grouped by location
+  [ ] Add manager → appears in list, can log in
+  [ ] Edit manager (username, password, location) → persists
+  [ ] Delete manager → removed
+
+DATA INTEGRITY CHECKS
+  [ ] Submit service for plate B123ABC at straulesti → verify service.locatie_id = straulesti.id
+  [ ] Submit same plate at caranfil → verify cross-location behavior (existing client reused, service at caranfil)
+  [ ] Payment type CURS → service excluded from all "incasari" totals, included in cursInAsteptare
+  [ ] Payment type CURS → updating to CASH in dashboard → appears in collected revenue on next refresh
+  [ ] Verify numarCurent increments daily (starts at 1 each day)
+  [ ] Submit at 3:45am → service attributed to previous day's data window
+
+
+================================================================================
+  SECTION D — VPS DEPLOYMENT (HETZNER, NOT RAILWAY)
+================================================================================
+
+Target: Hetzner CX22 (€3.29/mo). Nginx → Gunicorn → Flask. Frontend served as
+static from Flask's dist/. Cloudflare Access in front for SSO/security layer.
+
+[VPS-01] ENVIRONMENT CONFIG
+  - Generate proper SECRET_KEY: python -c "import secrets; print(secrets.token_hex(32))"
+  - Set DATABASE_URL to PostgreSQL connection string (not SQLite)
+  - Set FLASK_DEBUG=false (must be explicit)
+  - Set FLASK_ENV=production
+  - Set CORS_ORIGINS to the actual domain (not *)
+  - Store all in /etc/carhaus.env, chmod 600, owned by the service user
+
+[VPS-02] POSTGRESQL SETUP
+  - Install PostgreSQL on VPS or use managed DB
+  - Create dedicated database + user with limited privileges (no superuser)
+  - Run: flask db upgrade (all migrations)
+  - Run: python initialize.py (creates locations + default accounts)
+  - IMMEDIATELY change all default passwords via admin Settings → Manageri
+
+[VPS-03] GUNICORN CONFIG
+  - Workers: 2-4 (for CX22 with 2 vCPU: 4 workers)
+  - Worker class: sync (default) — no async needed for this load
+  - Bind: 127.0.0.1:5001 (internal only, Nginx proxies)
+  - Timeout: 30s
+  - Access log: /var/log/carhaus/access.log
+  - Error log: /var/log/carhaus/error.log
+  - Start via systemd service (auto-restart on crash)
+
+[VPS-04] NGINX CONFIG
+  - server_name: carhaus.yourdomain.ro (or VPS IP for portfolio)
+  - location /api/ → proxy_pass http://127.0.0.1:5001
+  - location / → try_files with frontend/dist/ fallback to index.html
+  - client_max_body_size 1M (matches Flask MAX_CONTENT_LENGTH)
+  - gzip on for text/html, application/json, text/css, application/javascript
+  - Proxy headers: X-Real-IP, X-Forwarded-For, X-Forwarded-Proto
+
+[VPS-05] SSL / CLOUDFLARE
+  - If using Cloudflare: set SSL mode to "Full (strict)"
+  - Install certbot + nginx plugin if NOT behind Cloudflare
+  - Cloudflare Access tunnel: protects the whole domain — no public port 80/443 open
+  - Set SESSION_COOKIE_SECURE=True (requires HTTPS)
+
+[VPS-06] BUILD + DEPLOY PROCESS
+  Step 1: On dev machine: npm run build (in frontend/) → generates dist/
+  Step 2: rsync or scp dist/ to VPS at /var/www/carhaus/frontend/dist/
+  Step 3: rsync backend + requirements.txt to VPS
+  Step 4: On VPS: pip install -r requirements.txt (in venv)
+  Step 5: On VPS: flask db upgrade
+  Step 6: systemctl restart carhaus-gunicorn
+  Step 7: Verify: curl http://localhost:5001/api/auth/me → {"error":"..."}  (not 404)
+
+[VPS-07] REMOVE RAILWAY CONFIG (PORTFOLIO DEPLOY)
+  - nixpacks.toml — not needed for VPS (can keep for Railway portfolio deploy)
+  - railway.toml — not needed for VPS
+  - These don't hurt anything but can be removed for a cleaner repo
+
+[VPS-08] POSTGRESQL BACKUPS ON VPS
+  - Install pg_dump cron job: daily at 3am
+  - pg_dump carhaus | gzip > /var/backups/carhaus/carhaus_$(date +%Y%m%d).sql.gz
+  - Keep last 30 days (find + delete older)
+  - Optionally: rsync to a second location (even just a different disk)
+
+[VPS-09] SYSTEMD SERVICE FILE
+  /etc/systemd/system/carhaus.service:
+    [Unit]
+    Description=CarHaus V2 Gunicorn
+    After=network.target postgresql.service
+
+    [Service]
+    User=carhaus
+    WorkingDirectory=/var/www/carhaus
+    EnvironmentFile=/etc/carhaus.env
+    ExecStart=/var/www/carhaus/venv/bin/gunicorn -w 4 -b 127.0.0.1:5001 run:app
+    Restart=always
+    RestartSec=5
+
+    [Install]
+    WantedBy=multi-user.target
+
+[VPS-10] MONITORING
+  - systemctl status carhaus → should show "active (running)"
+  - journalctl -u carhaus -f → live logs
+  - Nginx: /var/log/nginx/access.log, error.log
+  - Optional: UptimeRobot (free) for uptime alerts on the /api/auth/me endpoint
+
+
+================================================================================
+  SECTION E — FUTURE FEATURES (POST-DELIVERY, FOR CLIENT ROADMAP)
+================================================================================
+
+These came from the owner review. Not in the finishing sprint. Document them here
+so the client conversation is informed.
+
+PRIORITY 1 — B2B BLOCKER
+  Invoice generation (PDF, with VAT, invoice series) — required for contract/fleet clients
+
+PRIORITY 2 — OPERATIONAL GAPS
+  End-of-day cash reconciliation (drawer count vs system total)
+  Shift close / manager sign-off with timestamp + lock
+  Worker monthly earnings export (PDF or CSV for payroll)
+  CSV/Excel export on all admin report tables (accountant requirement)
+
+PRIORITY 3 — BUSINESS INTELLIGENCE
+  Aging alerts for CURS invoices past N days
+  Location comparison charts (Straulesti vs Caranfil over shared time period)
+  Client notes field (free text per plate)
+  Basic loyalty counter (visible on plate lookup, e.g. "Vizita #47")
+
+PRIORITY 4 — ADVANCED FEATURES
+  Shift scheduling (who's in on Saturday in advance)
+  Time-based pricing (Monday discount, morning special)
+  Price history audit trail
+  SMS/email notifications (revenue thresholds, aging CURS, missing morning activity)
+  Offline mode with sync (requires PWA + service worker)
+
+
+================================================================================
+  SUMMARY: FINISHING SPRINT ISSUE COUNT
+================================================================================
+
+  Section A — Must Fix:
+    Bugs (data correctness):    6 items  (BUG-01 through BUG-06)
+    Backend hardening:          8 items  (HARD-01 through HARD-08)
+    UI/UX fixes:               10 items  (UI-01 through UI-10)
+    Total: 24 actionable items
+
+  Section B — Preserve:         10 validated decisions to never break
+
+  Section C — Testing:          ~80 test checkpoints across all flows
+
+  Section D — VPS deployment:   10 deployment steps
+
+  Section E — Future roadmap:   10+ features for client conversation
+
+
+================================================================================
+END OF OVERALL REVIEW — 2026-03-20
+================================================================================
